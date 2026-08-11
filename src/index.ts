@@ -22,24 +22,20 @@ async function main() {
         
         logger.info('Starting Google Business Profile Review MCP Server...');
         
-        // Initialize the MCP server
-        const mcpServer = new McpServer();
-        
-        // Start the server
-        await mcpServer.start();
+        // The v2 stdio entry owns server construction and creates exactly one
+        // fresh protocol instance for the selected connection era.
+        McpServer.serve();
         
         logger.info('Google Business Profile Review MCP Server is running successfully');
         
         // Graceful shutdown handling
         process.on('SIGINT', async () => {
             logger.info('Received SIGINT, shutting down gracefully...');
-            await mcpServer.stop();
             process.exit(0);
         });
         
         process.on('SIGTERM', async () => {
             logger.info('Received SIGTERM, shutting down gracefully...');
-            await mcpServer.stop();
             process.exit(0);
         });
         

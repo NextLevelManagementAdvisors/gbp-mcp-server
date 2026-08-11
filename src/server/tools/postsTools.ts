@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import { logger } from '../../utils/logger.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import type { PostService, LocalPost, LocalPostType } from '../../services/postService.js';
 
 const postTopicTypeSchema = z.enum(['STANDARD', 'EVENT', 'OFFER', 'ALERT']);

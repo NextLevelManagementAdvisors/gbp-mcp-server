@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 import { logger } from '../../utils/logger.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import type { BusinessInfoService } from '../../services/businessInfoService.js';
 
 export function createGetLocationDetailsTool(svc: BusinessInfoService) {

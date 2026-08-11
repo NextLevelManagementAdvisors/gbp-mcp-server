@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { logger } from '../../utils/logger.js';
 import type { IReviewService, PostReplyParams } from '../../types/index.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult } from "@modelcontextprotocol/server";
 
 export interface PostReplyTool {
     schema: {

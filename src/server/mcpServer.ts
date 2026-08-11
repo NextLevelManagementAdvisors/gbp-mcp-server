@@ -1,9 +1,8 @@
 /**
  * Main MCP Server implementation for Google Business Profile Review management
  */
-
-import { McpServer as BaseMcpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
+import { McpServer as BaseMcpServer, ServerContext } from "@modelcontextprotocol/server";
 import { z } from 'zod';
 
 import { getConfig } from '../utils/config.js';
@@ -59,8 +58,6 @@ import { createReviewResponsePrompt } from './prompts/reviewResponse.js';
 import { createSentimentAnalysisPrompt } from './prompts/sentimentAnalysis.js';
 import { createManageReviewsPrompt } from './prompts/manageReviews.js';
 import { createAnalyzeReviewStatsPrompt } from './prompts/analyzeReviewStats.js';
-import { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
-import { ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
 
 export class McpServer {
     private config = getConfig();
@@ -127,6 +124,13 @@ export class McpServer {
         
         this.setupServer();
     }
+
+    static serve(): void {
+        serveStdio(
+            () => new McpServer().server,
+            { onerror: (error) => logger.error('MCP stdio error:', error) }
+        );
+    }
     
     private setupServer(): void {
         logger.info('Setting up MCP server tools, resources, and prompts...');
@@ -153,8 +157,8 @@ export class McpServer {
             {
                 title: listLocationsTool.schema.title,
                 description: listLocationsTool.schema.description,
-                inputSchema: {},
-                outputSchema: listLocationsTool.schema.outputSchema
+                inputSchema: z.object({}),
+                outputSchema: z.object(listLocationsTool.schema.outputSchema)
             },
             async (args: any) => {
                 return await listLocationsTool.handler(args);
@@ -168,8 +172,8 @@ export class McpServer {
             {
                 title: getUnrepliedReviewsTool.schema.title,
                 description: getUnrepliedReviewsTool.schema.description,
-                inputSchema: getUnrepliedReviewsTool.schema.inputSchema,
-                outputSchema: getUnrepliedReviewsTool.schema.outputSchema
+                inputSchema: z.object(getUnrepliedReviewsTool.schema.inputSchema),
+                outputSchema: z.object(getUnrepliedReviewsTool.schema.outputSchema)
             },
             async (args: any) => {
                 return await getUnrepliedReviewsTool.handler(args);
@@ -183,11 +187,11 @@ export class McpServer {
             {
                 title: generateReplyTool.schema.title,
                 description: generateReplyTool.schema.description,
-                inputSchema: generateReplyTool.schema.inputSchema,
+                inputSchema: z.object(generateReplyTool.schema.inputSchema),
                 outputSchema: generateReplyTool.schema.outputSchema
             },
-            async (args: any, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
-                return await generateReplyTool.handler(args, extra);
+            async (args: any, ctx: ServerContext) => {
+                return await generateReplyTool.handler(args, ctx);
             }
         );
         
@@ -198,8 +202,8 @@ export class McpServer {
             {
                 title: postReplyTool.schema.title,
                 description: postReplyTool.schema.description,
-                inputSchema: postReplyTool.schema.inputSchema,
-                outputSchema: postReplyTool.schema.outputSchema
+                inputSchema: z.object(postReplyTool.schema.inputSchema),
+                outputSchema: z.object(postReplyTool.schema.outputSchema)
             },
             async (args: any) => {
                 return await postReplyTool.handler(args);
@@ -213,8 +217,8 @@ export class McpServer {
             {
                 title: getReviewDayStatsTool.schema.title,
                 description: getReviewDayStatsTool.schema.description,
-                inputSchema: getReviewDayStatsTool.schema.inputSchema,
-                outputSchema: getReviewDayStatsTool.schema.outputSchema
+                inputSchema: z.object(getReviewDayStatsTool.schema.inputSchema),
+                outputSchema: z.object(getReviewDayStatsTool.schema.outputSchema)
             },
             async (args: any) => await getReviewDayStatsTool.handler(args)
         );
@@ -270,8 +274,8 @@ export class McpServer {
             {
                 title: tool.schema.title,
                 description: tool.schema.description,
-                inputSchema: tool.schema.inputSchema,
-                outputSchema: tool.schema.outputSchema
+                inputSchema: z.object(tool.schema.inputSchema),
+                outputSchema: z.object(tool.schema.outputSchema)
             },
             async (args: any) => await tool.handler(args)
         );
@@ -379,15 +383,15 @@ export class McpServer {
             {
                 title: 'Review Response Generator',
                 description: reviewResponsePrompt.description,
-                argsSchema: {
-                    reviewText: z.string().describe('The customer review text'),
-                    starRating: z.string().describe('Star rating (1-5)'),
-                    businessName: z.string().describe('Name of the business'),
-                    businessType: z.string().optional().describe('Type of business (restaurant, retail, etc.)'),
-                    customerName: z.string().optional().describe('Customer display name'),
-                    replyTone: z.string().describe('Desired tone for the reply'),
-                    previousReplies: z.string().optional().describe('JSON array of previous replies for consistency')
-                }
+                argsSchema: z.object({
+                                    reviewText: z.string().describe('The customer review text'),
+                                    starRating: z.string().describe('Star rating (1-5)'),
+                                    businessName: z.string().describe('Name of the business'),
+                                    businessType: z.string().optional().describe('Type of business (restaurant, retail, etc.)'),
+                                    customerName: z.string().optional().describe('Customer display name'),
+                                    replyTone: z.string().describe('Desired tone for the reply'),
+                                    previousReplies: z.string().optional().describe('JSON array of previous replies for consistency')
+                                })
             },
             async (args: any) => {
                 const context = {
@@ -422,11 +426,11 @@ export class McpServer {
             {
                 title: 'Review Sentiment Analysis',
                 description: sentimentAnalysisPrompt.description,
-                argsSchema: {
-                    reviewText: z.string().describe('The review text to analyze'),
-                    includeEmotions: z.string().optional().describe('Include emotional analysis (true/false)'),
-                    includeKeywords: z.string().optional().describe('Include keyword extraction (true/false)')
-                }
+                argsSchema: z.object({
+                                    reviewText: z.string().describe('The review text to analyze'),
+                                    includeEmotions: z.string().optional().describe('Include emotional analysis (true/false)'),
+                                    includeKeywords: z.string().optional().describe('Include keyword extraction (true/false)')
+                                })
             },
             async (args: any) => {
                 const context = {
@@ -457,9 +461,9 @@ export class McpServer {
             {
                 title: 'Manage Pending Reviews',
                 description: manageReviewsPrompt.description,
-                argsSchema: {
-                    // locationName: z.string().optional().describe('Specific location to check (optional)')
-                }
+                argsSchema: z.object({
+                                    // locationName: z.string().optional().describe('Specific location to check (optional)')
+                                })
             },
             async (args: any) => {
                 const prompt = await manageReviewsPrompt.handler();
@@ -485,7 +489,7 @@ export class McpServer {
             {
                 title: 'Analyze Review Statistics',
                 description: analyzeReviewStatsPrompt.description,
-                argsSchema: {}
+                argsSchema: z.object({})
             },
             async (args: any) => {
                 const prompt = await analyzeReviewStatsPrompt.handler();
@@ -510,9 +514,7 @@ export class McpServer {
     
     async start(): Promise<void> {
         logger.info('Starting MCP server with STDIO transport...');
-        
-        const transport = new StdioServerTransport();
-        await this.server.connect(transport);
+        McpServer.serve();
         
         logger.info(`MCP server started with STDIO transport`);
         

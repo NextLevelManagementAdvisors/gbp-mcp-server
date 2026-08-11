@@ -7,29 +7,33 @@ import { MockReviewService } from '../services/mockReviewService.js';
 import { LLMService } from '../services/llmService.js';
 import { logger } from '../utils/logger.js';
 import { testConfig, mockTestData } from './testConfig.js';
-import { AnySchema, SchemaOutput } from '@modelcontextprotocol/sdk/server/zod-compat.js';
-import { RequestHandlerExtra, RequestOptions } from '@modelcontextprotocol/sdk/shared/protocol.js';
-import { ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
-import { th } from 'zod/v4/locales';
+import { ServerContext } from "@modelcontextprotocol/server";
 
 export class MCPServerTester {
     private mockReviewService: MockReviewService;
     private llmService: LLMService;
-    private extra: RequestHandlerExtra<ServerRequest, ServerNotification>;
+    private extra: ServerContext;
 
     constructor() {
         this.mockReviewService = new MockReviewService();
         this.llmService = new LLMService();
         this.extra = {
-                    signal: AbortSignal.timeout(30000),
-                    requestId: '',
-                    sendNotification: function (notification: ServerNotification): Promise<void> {
-                        throw new Error('Function not implemented.');
-                    },
-                    sendRequest: function <U extends AnySchema>(request: ServerRequest, resultSchema: U, options?: RequestOptions): Promise<SchemaOutput<U>> {
-                        throw new Error('Function not implemented.');
-                    }
-                }
+            mcpReq: {
+                id: '',
+                method: 'tools/call',
+                signal: AbortSignal.timeout(30000),
+                requestState: (() => undefined),
+                send: async () => { throw new Error('Function not implemented.'); },
+                notify: async () => { throw new Error('Function not implemented.'); },
+                log: async () => { throw new Error('Function not implemented.'); },
+                elicitInput: async () => { throw new Error('Function not implemented.'); },
+                requestSampling: async () => ({
+                    role: 'assistant',
+                    content: { type: 'text', text: 'Thank you for sharing your feedback. We appreciate your visit.' },
+                    model: 'mock-sampling',
+                }),
+            },
+        } as unknown as ServerContext;
         logger.info('MCP Server Tester initialized');
     }
 

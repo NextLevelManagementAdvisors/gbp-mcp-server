@@ -21,8 +21,7 @@ import { z } from 'zod';
 import { logger } from '../../utils/logger.js';
 import type { LLMService } from '../../services/llmService.js';
 import type { GenerateReplyParams } from '../../types/index.js';
-import { CallToolResult, ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
-import { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import { CallToolResult, ServerContext } from "@modelcontextprotocol/server";
 
 export interface GenerateReplyTool {
     schema: {
@@ -37,7 +36,7 @@ export interface GenerateReplyTool {
         };
         outputSchema: any;
     };
-    handler: (params: GenerateReplyParams, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => Promise<CallToolResult>;
+    handler: (params: GenerateReplyParams, extra: ServerContext) => Promise<CallToolResult>;
 }
 
 export function createGenerateReplyTool(llmService: LLMService): GenerateReplyTool {
@@ -62,7 +61,7 @@ export function createGenerateReplyTool(llmService: LLMService): GenerateReplyTo
             })
         },
         
-        handler: async (args: any, extra: RequestHandlerExtra<ServerRequest, ServerNotification>): Promise<any> => {
+        handler: async (args: any, extra: ServerContext): Promise<any> => {
             try {
                 const params: GenerateReplyParams = {
                     reviewText: args.reviewText,

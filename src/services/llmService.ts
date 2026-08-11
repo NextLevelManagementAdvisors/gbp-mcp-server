@@ -13,16 +13,14 @@ import {
     determineToneFromRating 
 } from '../utils/sentimentAnalysis.js';
 import { generateTemplateResponse, createReplyPrompt } from '../utils/templateGenerator.js';
-import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import { CreateMessageRequest, ServerContext } from "@modelcontextprotocol/server";
 import type { 
     GenerateReplyResponse, 
     ServiceResponse,
     ReviewResponseContext
 } from '../types/index.js';
-import { CreateMessageRequest, CreateMessageRequestSchema, ServerNotification, ServerRequest, ToolResultContent } from '@modelcontextprotocol/sdk/types.js';
-
-type SendRequest = RequestHandlerExtra<ServerRequest, ServerNotification>['sendRequest'];
-const requestSampling = async (prompt: string, sendRequest: SendRequest) => {
+type RequestSampling = ServerContext['mcpReq']['requestSampling'];
+const requestSampling = async (prompt: string, sample: RequestSampling) => {
     const request: CreateMessageRequest = {
         method: "sampling/createMessage",
         params: {
@@ -42,7 +40,7 @@ const requestSampling = async (prompt: string, sendRequest: SendRequest) => {
         }
     };
 
-    const response: any = await sendRequest(request, CreateMessageRequestSchema);
+    const response: any = await sample(request.params);
     return response.content.text;
 }; 
 
@@ -71,7 +69,7 @@ reviewText: string, starRating: number, businessName: string, options: {
     replyTone?: 'professional' | 'friendly' | 'apologetic' | 'grateful';
     includePersonalization?: boolean;
     maxLength?: number;
-} = {}, extra: RequestHandlerExtra<ServerRequest, ServerNotification>    ): Promise<ServiceResponse<GenerateReplyResponse>> {
+} = {}, extra: ServerContext    ): Promise<ServiceResponse<GenerateReplyResponse>> {
         try {
             logger.debug('Generating reply for review', { starRating, businessName, hasSampling: !!this.samplingCallback });
             
@@ -104,7 +102,7 @@ reviewText: string, starRating: number, businessName: string, options: {
                 }
             } else {
                 logger.info('No AI sampling available, using template response');
-                replyText = await requestSampling(prompt, extra.sendRequest);
+                replyText = await requestSampling(prompt, extra.mcpReq.requestSampling);
                 confidence = 0.9; // High confidence for AI-generated replies
             }
             

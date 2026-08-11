@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { logger } from '../../utils/logger.js';
 import type { IReviewService } from '../../types/index.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult } from "@modelcontextprotocol/server";
 
 export function createDeleteReviewReplyTool(reviewService: IReviewService) {
     return {
