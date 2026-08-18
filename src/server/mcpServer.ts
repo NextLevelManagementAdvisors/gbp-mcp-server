@@ -528,4 +528,17 @@ export class McpServer {
         logger.info('Stopping MCP server...');
         logger.info('MCP server stopped');
     }
+
+    /**
+     * Connect an arbitrary transport (used by the HTTP entry point, which
+     * needs a fresh server+transport pair per session rather than the
+     * single hardcoded STDIO transport start() wires up).
+     */
+    async connect(transport: import('@modelcontextprotocol/sdk/shared/transport.js').Transport): Promise<void> {
+        await this.server.connect(transport);
+    }
+
+    async closeUnderlying(): Promise<void> {
+        await this.server.close();
+    }
 }

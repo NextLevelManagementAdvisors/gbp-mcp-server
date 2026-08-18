@@ -14,6 +14,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node build/index.js",
+    "start:http": "node build/http.js",
     "start:mock": "cross-env NODE_ENV=development ENABLE_MOCK_MODE=true node build/index.js",
     "auth": "node authenticate.js",
     "dev": "tsx src/index.ts",
