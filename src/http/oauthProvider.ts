@@ -28,7 +28,10 @@ export const oauthProvider: any = {
     async authorize(client: any, params: any, res: any) {
         // Stamped by the googleGate middleware (via AsyncLocalStorage) before
         // the SDK's mcpAuthRouter reached this call -- see requestContext.ts.
-        const email = currentEmail() || OPERATOR_IDENTITY;
+        // Deliberately NOT defaulted to OPERATOR_IDENTITY: if the async
+        // context was somehow lost between the gate and here, this must
+        // fail CLOSED to zero locations, not open to full access.
+        const email = currentEmail();
         const code = store.putCode({
             clientId: client.client_id,
             codeChallenge: params.codeChallenge,

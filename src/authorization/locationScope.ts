@@ -59,11 +59,27 @@ export function reloadLocationScopes(): void {
 }
 
 // Callers pass full ("accounts/123/locations/456") or short
-// ("locations/456") resource names interchangeably; compare on the trailing
-// locations/{id} segment so both forms match the same scope entry.
+// ("locations/456") resource names interchangeably, and several tools
+// identify their target via a resource name that only EMBEDS the location
+// rather than exposing it as its own field -- e.g. questionName
+// "locations/456/questions/789", postName "accounts/1/locations/456/localPosts/2".
+// Match the locations/{id} segment wherever it occurs, not just at the end,
+// so every one of those shapes normalizes to the same scope-comparable key.
 function normalizeLocation(name: string): string {
-    const match = name.match(/locations\/[^/]+$/);
+    const match = name.match(/locations\/[^/]+/);
     return match ? match[0] : name;
+}
+
+// Chokepoint for tools whose input has no dedicated `locationName` field:
+// scan every string arg for one that contains a locations/{id} segment.
+// Generic on purpose -- new tools/fields need no per-name allowlisting here,
+// only a resource-name string containing "locations/" to be caught.
+export function extractLocationRef(args: unknown): string | undefined {
+    if (!args || typeof args !== 'object') return undefined;
+    for (const value of Object.values(args as Record<string, unknown>)) {
+        if (typeof value === 'string' && value.includes('locations/')) return value;
+    }
+    return undefined;
 }
 
 function scopeFor(email: string | undefined): Scope {

@@ -11,6 +11,7 @@ import { gateConfig } from './gateConfig.js';
 import { isDomainAuthorized } from './authorizedDomains.js';
 import { runWithEmail } from './requestContext.js';
 import { OPERATOR_IDENTITY } from '../authorization/locationScope.js';
+import { logger } from '../utils/logger.js';
 
 const COOKIE_NAME = 'gbp_mcp_authed';
 const COOKIE_MAX_AGE_MS = 10 * 60 * 1000;
@@ -102,10 +103,17 @@ function emailAllowed(email: string): boolean {
     if (allowEmails.includes(e)) return true;
     const domain = e.split('@')[1] || '';
     if (allowDomains.includes(domain)) return true;
-    // Central org-wide registry (status.nlma.io) widens WHO may sign in;
-    // it grants no location access by itself -- locationScope.ts defaults
-    // any identity not explicitly mapped there to zero locations.
-    return isDomainAuthorized(domain);
+    // Central org-wide registry (status.nlma.io) widens WHO may sign in --
+    // any domain another service adds there also gains sign-in access here.
+    // It grants no location access by itself: locationScope.ts defaults any
+    // identity not explicitly mapped there to zero locations, so the actual
+    // GBP access boundary doesn't move. Logged because it's a widening this
+    // service doesn't fully control the source of.
+    if (isDomainAuthorized(domain)) {
+        logger.info(`Sign-in granted via central domain registry (not local allowlist): ${e}`);
+        return true;
+    }
+    return false;
 }
 function consentUrl(state: string): string {
     const p = new URLSearchParams({

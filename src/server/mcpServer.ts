@@ -61,7 +61,7 @@ import { createManageReviewsPrompt } from './prompts/manageReviews.js';
 import { createAnalyzeReviewStatsPrompt } from './prompts/analyzeReviewStats.js';
 import { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import { ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
-import { isLocationAllowed, filterAllowedLocations } from '../authorization/locationScope.js';
+import { isLocationAllowed, filterAllowedLocations, extractLocationRef } from '../authorization/locationScope.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 
 type ToolExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
@@ -203,8 +203,9 @@ export class McpServer {
                 outputSchema: getUnrepliedReviewsTool.schema.outputSchema
             },
             async (args: any, extra: ToolExtra) => {
-                if (args?.locationName && !isLocationAllowed(emailFromExtra(extra), args.locationName)) {
-                    return locationDeniedResult(args.locationName);
+                const locationRef = extractLocationRef(args);
+                if (locationRef && !isLocationAllowed(emailFromExtra(extra), locationRef)) {
+                    return locationDeniedResult(locationRef);
                 }
                 return await getUnrepliedReviewsTool.handler(args);
             }
@@ -236,8 +237,9 @@ export class McpServer {
                 outputSchema: postReplyTool.schema.outputSchema
             },
             async (args: any, extra: ToolExtra) => {
-                if (args?.locationName && !isLocationAllowed(emailFromExtra(extra), args.locationName)) {
-                    return locationDeniedResult(args.locationName);
+                const locationRef = extractLocationRef(args);
+                if (locationRef && !isLocationAllowed(emailFromExtra(extra), locationRef)) {
+                    return locationDeniedResult(locationRef);
                 }
                 return await postReplyTool.handler(args);
             }
@@ -254,8 +256,9 @@ export class McpServer {
                 outputSchema: getReviewDayStatsTool.schema.outputSchema
             },
             async (args: any, extra: ToolExtra) => {
-                if (args?.locationName && !isLocationAllowed(emailFromExtra(extra), args.locationName)) {
-                    return locationDeniedResult(args.locationName);
+                const locationRef = extractLocationRef(args);
+                if (locationRef && !isLocationAllowed(emailFromExtra(extra), locationRef)) {
+                    return locationDeniedResult(locationRef);
                 }
                 return await getReviewDayStatsTool.handler(args);
             }
@@ -316,9 +319,9 @@ export class McpServer {
                 outputSchema: tool.schema.outputSchema
             },
             async (args: any, extra: ToolExtra) => {
-                const locationName = args?.locationName;
-                if (locationName && !isLocationAllowed(emailFromExtra(extra), locationName)) {
-                    return locationDeniedResult(locationName);
+                const locationRef = extractLocationRef(args);
+                if (locationRef && !isLocationAllowed(emailFromExtra(extra), locationRef)) {
+                    return locationDeniedResult(locationRef);
                 }
                 return await tool.handler(args);
             }
