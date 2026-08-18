@@ -132,6 +132,17 @@ function runHttp(): void {
 
     const gate = createGoogleGate();
 
+    // Fail CLOSED, never OPEN: refuse to serve unauthenticated traffic. This
+    // only lets you through if the identity gate (Google or password), a
+    // static bearer, or an explicit dev opt-out is configured -- a prod
+    // misconfig (all three unset) must not silently expose every tool.
+    if (!gate.enabled && !gateConfig.mcpAuthToken && process.env.AUTH_GATE_DISABLED !== '1') {
+        throw new Error(
+            'No auth configured: set GOOGLE_WEB_CLIENT_ID/SECRET, MCP_OWNER_PASSWORD, ' +
+            'or MCP_AUTH_TOKEN. To run genuinely unauthenticated (local dev only), set AUTH_GATE_DISABLED=1.'
+        );
+    }
+
     if (gate.enabled) {
         // Human identity gate -> MCP OAuth 2.1 provider (DCR/PKCE) -> bearer-guarded /mcp.
         app.use(gate.routes); // /login, /oauth/google/start, /oauth/google/callback

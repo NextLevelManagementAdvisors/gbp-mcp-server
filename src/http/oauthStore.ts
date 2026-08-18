@@ -128,8 +128,15 @@ class OAuthStore {
         return row;
     }
 
+    // One-time-use: deletes the refresh token on read so a stolen-but-already-
+    // rotated token can't be replayed to keep minting access tokens forever.
     takeRefresh(refreshToken: string) {
-        return this.state.refresh[refreshToken] || null;
+        const row = this.state.refresh[refreshToken] || null;
+        if (row) {
+            delete this.state.refresh[refreshToken];
+            this._save();
+        }
+        return row;
     }
 
     revoke(token: string): void {

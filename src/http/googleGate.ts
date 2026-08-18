@@ -6,7 +6,7 @@
 // On success it mints a short-lived `gbp_mcp_authed` cookie that the
 // /authorize gate trusts. Fail-closed: empty allowlists let nobody in.
 import express, { Router, Request, Response, NextFunction } from 'express';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { gateConfig } from './gateConfig.js';
 
 const COOKIE_NAME = 'gbp_mcp_authed';
@@ -23,6 +23,30 @@ const states = new Map<string, { return: string; exp: number }>();
 const tok = (n = 24) => randomBytes(n).toString('base64url');
 const googleEnabled = () => Boolean(gateConfig.googleClientId && gateConfig.googleClientSecret);
 const passwordEnabled = () => Boolean(gateConfig.ownerPassword && gateConfig.allowPasswordFallback);
+
+// Constant-time compare so response timing can't leak how many leading
+// characters of a guessed password matched (guards the break-glass login).
+function passwordMatches(candidate: string): boolean {
+    const expected = Buffer.from(gateConfig.ownerPassword, 'utf8');
+    const given = Buffer.from(candidate, 'utf8');
+    if (expected.length !== given.length) {
+        // Still run a same-length comparison so early-return length checks
+        // don't themselves become a (much smaller) timing side-channel.
+        timingSafeEqual(expected, expected);
+        return false;
+    }
+    return timingSafeEqual(expected, given);
+}
+
+// Open-redirect guard: only an in-app, same-host path is a valid `return`
+// target. Browsers treat `//evil.com` and `/\evil.com` as protocol-relative
+// off-origin URLs, so both are rejected alongside any absolute URL.
+function sanitizeReturn(raw: string): string {
+    if (typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/\\')) {
+        return raw;
+    }
+    return '/';
+}
 
 function mintCookieValue(): string {
     const v = tok(32);
@@ -138,15 +162,15 @@ export function createGoogleGate(): GoogleGate {
     const routes = express.Router();
 
     routes.get('/login', (req: Request, res: Response) => {
-        res.status(200).type('html').send(loginPage(String(req.query.return || '/')));
+        res.status(200).type('html').send(loginPage(sanitizeReturn(String(req.query.return || '/'))));
     });
 
     routes.post('/login', express.urlencoded({ extended: false }), (req: Request, res: Response) => {
-        const returnUrl = String(req.body.return || '/') || '/';
+        const returnUrl = sanitizeReturn(String(req.body.return || '/'));
         if (!passwordEnabled()) {
             return res.status(401).type('html').send(loginPage(returnUrl, 'Password sign-in is disabled.'));
         }
-        if (String(req.body.password || '') !== gateConfig.ownerPassword) {
+        if (!passwordMatches(String(req.body.password || ''))) {
             return res.status(401).type('html').send(loginPage(returnUrl, 'Incorrect password.'));
         }
         setAuthCookie(res);
@@ -155,9 +179,7 @@ export function createGoogleGate(): GoogleGate {
 
     routes.get('/oauth/google/start', (req: Request, res: Response) => {
         if (!googleEnabled()) return res.redirect(302, '/login');
-        // Open-redirect guard: only same-host paths may be used as `return`.
-        const raw = String(req.query.return || '/');
-        const safeReturn = raw.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/\\') ? raw : '/';
+        const safeReturn = sanitizeReturn(String(req.query.return || '/'));
         const state = putState(safeReturn);
         res.redirect(302, consentUrl(state));
     });

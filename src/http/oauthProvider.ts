@@ -45,10 +45,16 @@ export const oauthProvider: any = {
         return row.codeChallenge;
     },
 
-    async exchangeAuthorizationCode(client: any, authorizationCode: string) {
+    async exchangeAuthorizationCode(client: any, authorizationCode: string, _codeVerifier?: string, redirectUri?: string) {
         const row = store.takeCode(authorizationCode);
         if (!row || row.clientId !== client.client_id) {
             throw new InvalidGrantError('Invalid or expired authorization code');
+        }
+        // RFC 6749 4.1.3: the redirect_uri at token exchange MUST match the one
+        // bound to this code at /authorize time, or a code intercepted en route
+        // to the legitimate redirect could be replayed against an attacker's URI.
+        if (redirectUri !== undefined && redirectUri !== row.redirectUri) {
+            throw new InvalidGrantError('redirect_uri does not match the value used in the authorization request');
         }
         const { accessToken, refreshToken, expiresIn } = store.issueTokens({
             clientId: client.client_id,
