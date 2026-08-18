@@ -71,15 +71,23 @@ function normalizeLocation(name: string): string {
 }
 
 // Chokepoint for tools whose input has no dedicated `locationName` field:
-// scan every string arg for one that contains a locations/{id} segment.
+// scan every string arg for ones that contain a locations/{id} segment.
 // Generic on purpose -- new tools/fields need no per-name allowlisting here,
 // only a resource-name string containing "locations/" to be caught.
-export function extractLocationRef(args: unknown): string | undefined {
-    if (!args || typeof args !== 'object') return undefined;
+//
+// Collects EVERY matching ref, not just the first: args is a plain object
+// from untrusted tool-call input, so a partial-scope caller could otherwise
+// put an allowed ref in one field (e.g. a free-text `summary`) and the real
+// target in another and have only the first checked. The guard must require
+// every distinct ref found to be in scope.
+export function extractLocationRefs(args: unknown): string[] {
+    if (!args || typeof args !== 'object') return [];
+    const refs = new Set<string>();
     for (const value of Object.values(args as Record<string, unknown>)) {
-        if (typeof value === 'string' && value.includes('locations/')) return value;
+        if (typeof value !== 'string') continue;
+        for (const match of value.matchAll(/locations\/[^/\s"']+/g)) refs.add(match[0]);
     }
-    return undefined;
+    return [...refs];
 }
 
 function scopeFor(email: string | undefined): Scope {
@@ -96,6 +104,12 @@ export function isLocationAllowed(email: string | undefined, locationName: strin
     const scope = scopeFor(email);
     if (scope === FULL_ACCESS) return true;
     return scope.includes(normalizeLocation(locationName));
+}
+
+// Used with extractLocationRefs(): every ref found in a tool call's args
+// must be allowed, not just one -- see extractLocationRefs' comment.
+export function findDisallowedLocation(email: string | undefined, locationRefs: string[]): string | undefined {
+    return locationRefs.find((ref) => !isLocationAllowed(email, ref));
 }
 
 export function filterAllowedLocations<T extends { name: string }>(email: string | undefined, locations: T[]): T[] {
