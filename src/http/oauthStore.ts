@@ -21,6 +21,7 @@ interface TokenRecord {
     clientId: string;
     scopes: string[];
     expiresAt: number;
+    email?: string;
 }
 
 interface CodeRecord {
@@ -30,12 +31,13 @@ interface CodeRecord {
     scopes: string[];
     resource?: string;
     expiresAt: number;
+    email?: string;
 }
 
 interface StoreState {
     clients: Record<string, ClientRecord>;
     tokens: Record<string, TokenRecord>;
-    refresh: Record<string, { clientId: string; scopes: string[] }>;
+    refresh: Record<string, { clientId: string; scopes: string[]; email?: string }>;
 }
 
 function emptyState(): StoreState {
@@ -107,12 +109,12 @@ class OAuthStore {
         return row;
     }
 
-    issueTokens({ clientId, scopes, ttlSeconds = 30 * 24 * 3600 }: { clientId: string; scopes: string[]; ttlSeconds?: number }) {
+    issueTokens({ clientId, scopes, email, ttlSeconds = 30 * 24 * 3600 }: { clientId: string; scopes: string[]; email?: string; ttlSeconds?: number }) {
         const accessToken = tok(32);
         const refreshToken = tok(32);
         const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
-        this.state.tokens[accessToken] = { clientId, scopes, expiresAt };
-        this.state.refresh[refreshToken] = { clientId, scopes };
+        this.state.tokens[accessToken] = { clientId, scopes, expiresAt, email };
+        this.state.refresh[refreshToken] = { clientId, scopes, email };
         this._save();
         return { accessToken, refreshToken, expiresIn: ttlSeconds };
     }

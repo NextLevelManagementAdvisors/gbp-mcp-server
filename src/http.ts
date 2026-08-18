@@ -18,6 +18,7 @@ import { McpServer } from './server/mcpServer.js';
 import { gateConfig } from './http/gateConfig.js';
 import { createGoogleGate } from './http/googleGate.js';
 import { oauthProvider } from './http/oauthProvider.js';
+import { initAuthorizedDomains } from './http/authorizedDomains.js';
 import { logger } from './utils/logger.js';
 
 const isMockMode = process.env.NODE_ENV === 'test' ||
@@ -120,7 +121,9 @@ function mountMcp(app: express.Express, authMw: express.RequestHandler): void {
     });
 }
 
-function runHttp(): void {
+async function runHttp(): Promise<void> {
+    await initAuthorizedDomains();
+
     const app = express();
     app.set('trust proxy', 1);
 
@@ -182,4 +185,7 @@ function runHttp(): void {
     });
 }
 
-runHttp();
+runHttp().catch((err) => {
+    logger.error('Fatal startup error', err);
+    process.exit(1);
+});

@@ -8,6 +8,8 @@
 import { InvalidGrantError, InvalidTokenError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
 import { store } from './oauthStore.js';
 import { gateConfig } from './gateConfig.js';
+import { currentEmail } from './requestContext.js';
+import { OPERATOR_IDENTITY } from '../authorization/locationScope.js';
 
 const clientsStore = {
     getClient(clientId: string) {
@@ -24,12 +26,16 @@ export const oauthProvider: any = {
     },
 
     async authorize(client: any, params: any, res: any) {
+        // Stamped by the googleGate middleware (via AsyncLocalStorage) before
+        // the SDK's mcpAuthRouter reached this call -- see requestContext.ts.
+        const email = currentEmail() || OPERATOR_IDENTITY;
         const code = store.putCode({
             clientId: client.client_id,
             codeChallenge: params.codeChallenge,
             redirectUri: params.redirectUri,
             scopes: params.scopes || [],
             resource: params.resource ? params.resource.toString() : undefined,
+            email,
         });
         const target = new URL(params.redirectUri);
         target.searchParams.set('code', code);
@@ -59,6 +65,7 @@ export const oauthProvider: any = {
         const { accessToken, refreshToken, expiresIn } = store.issueTokens({
             clientId: client.client_id,
             scopes: row.scopes,
+            email: row.email,
         });
         return {
             access_token: accessToken,
@@ -78,6 +85,7 @@ export const oauthProvider: any = {
         const { accessToken, refreshToken: newRefresh, expiresIn } = store.issueTokens({
             clientId: client.client_id,
             scopes: grantScopes,
+            email: row.email,
         });
         return {
             access_token: accessToken,
@@ -90,16 +98,28 @@ export const oauthProvider: any = {
 
     async verifyAccessToken(token: string) {
         if (gateConfig.mcpAuthToken && token === gateConfig.mcpAuthToken) {
+            // Pasted static bearer (e.g. Claude Code): a single trusted
+            // operator, same as the password break-glass fallback.
             return {
                 token,
                 clientId: 'static-bearer',
                 scopes: ['mcp'],
                 expiresAt: Math.floor(Date.now() / 1000) + 10 * 365 * 24 * 3600,
+                extra: { email: OPERATOR_IDENTITY },
             };
         }
         const row = store.getToken(token);
         if (!row) throw new InvalidTokenError('Token is invalid or expired');
-        return { token, clientId: row.clientId, scopes: row.scopes || [], expiresAt: row.expiresAt };
+        // No fallback to OPERATOR_IDENTITY here: a token issued before this
+        // identity-scoping change (or any other bug) carries no email and
+        // must fail CLOSED to zero locations, not open to full access.
+        return {
+            token,
+            clientId: row.clientId,
+            scopes: row.scopes || [],
+            expiresAt: row.expiresAt,
+            extra: { email: row.email },
+        };
     },
 
     async revokeToken(_client: any, request: { token: string }) {

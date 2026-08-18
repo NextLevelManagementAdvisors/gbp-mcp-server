@@ -8,6 +8,9 @@
 import express, { Router, Request, Response, NextFunction } from 'express';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { gateConfig } from './gateConfig.js';
+import { isDomainAuthorized } from './authorizedDomains.js';
+import { runWithEmail } from './requestContext.js';
+import { OPERATOR_IDENTITY } from '../authorization/locationScope.js';
 
 const COOKIE_NAME = 'gbp_mcp_authed';
 const COOKIE_MAX_AGE_MS = 10 * 60 * 1000;
@@ -17,7 +20,10 @@ const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
 
-const validCookies = new Map<string, number>();
+// Cookie value -> { the identity that signed in, expiry }. Password
+// break-glass logins carry the OPERATOR_IDENTITY sentinel instead of a real
+// email, so downstream location scoping still has something to key on.
+const validCookies = new Map<string, { email: string; exp: number }>();
 const states = new Map<string, { return: string; exp: number }>();
 
 const tok = (n = 24) => randomBytes(n).toString('base64url');
@@ -48,17 +54,17 @@ function sanitizeReturn(raw: string): string {
     return '/';
 }
 
-function mintCookieValue(): string {
+function mintCookieValue(email: string): string {
     const v = tok(32);
-    validCookies.set(v, Date.now() + COOKIE_MAX_AGE_MS);
+    validCookies.set(v, { email, exp: Date.now() + COOKIE_MAX_AGE_MS });
     return v;
 }
-function isValidCookie(v?: string): boolean {
-    if (!v) return false;
-    const exp = validCookies.get(v);
-    if (!exp) return false;
-    if (exp < Date.now()) { validCookies.delete(v); return false; }
-    return true;
+function cookieEmail(v?: string): string | null {
+    if (!v) return null;
+    const row = validCookies.get(v);
+    if (!row) return null;
+    if (row.exp < Date.now()) { validCookies.delete(v); return null; }
+    return row.email;
 }
 function parseCookies(header = ''): Record<string, string> {
     const out: Record<string, string> = {};
@@ -69,8 +75,8 @@ function parseCookies(header = ''): Record<string, string> {
     }
     return out;
 }
-function setAuthCookie(res: Response): void {
-    res.cookie(COOKIE_NAME, mintCookieValue(), {
+function setAuthCookie(res: Response, email: string): void {
+    res.cookie(COOKIE_NAME, mintCookieValue(email), {
         maxAge: COOKIE_MAX_AGE_MS, httpOnly: true, secure: true, sameSite: 'lax', path: '/',
     });
 }
@@ -92,11 +98,14 @@ function popState(st: string) {
 function emailAllowed(email: string): boolean {
     const allowEmails = gateConfig.googleAllowedEmails || [];
     const allowDomains = gateConfig.googleAllowedDomains || [];
-    if (allowEmails.length === 0 && allowDomains.length === 0) return false; // fail closed
     const e = String(email).toLowerCase();
     if (allowEmails.includes(e)) return true;
     const domain = e.split('@')[1] || '';
-    return allowDomains.includes(domain);
+    if (allowDomains.includes(domain)) return true;
+    // Central org-wide registry (status.nlma.io) widens WHO may sign in;
+    // it grants no location access by itself -- locationScope.ts defaults
+    // any identity not explicitly mapped there to zero locations.
+    return isDomainAuthorized(domain);
 }
 function consentUrl(state: string): string {
     const p = new URLSearchParams({
@@ -173,7 +182,7 @@ export function createGoogleGate(): GoogleGate {
         if (!passwordMatches(String(req.body.password || ''))) {
             return res.status(401).type('html').send(loginPage(returnUrl, 'Incorrect password.'));
         }
-        setAuthCookie(res);
+        setAuthCookie(res, OPERATOR_IDENTITY);
         res.redirect(303, returnUrl);
     });
 
@@ -215,7 +224,7 @@ export function createGoogleGate(): GoogleGate {
             if (!email || email_verified === false || !emailAllowed(email)) {
                 return res.status(403).type('html').send(deniedPage(email || 'unknown'));
             }
-            setAuthCookie(res);
+            setAuthCookie(res, email.toLowerCase());
             res.redirect(303, row.return || '/authorize');
         } catch {
             res.status(500).type('html').send(loginPage('/', 'Sign-in error. Try again.'));
@@ -223,9 +232,14 @@ export function createGoogleGate(): GoogleGate {
     });
 
     // Gate middleware for /authorize: require a valid cookie or bounce to /login.
+    // Enters an AsyncLocalStorage context carrying the signed-in identity so
+    // oauthProvider.authorize() -- called deeper in this same request by the
+    // SDK's mcpAuthRouter, with no `req` of its own -- can stamp it onto the
+    // issued auth code/token for later location-scope enforcement.
     const gate = (req: Request, res: Response, next: NextFunction) => {
         const cookies = parseCookies(req.headers.cookie || '');
-        if (isValidCookie(cookies[COOKIE_NAME])) return next();
+        const email = cookieEmail(cookies[COOKIE_NAME]);
+        if (email) return runWithEmail(email, next);
         res.redirect(302, `/login?return=${encodeURIComponent(req.originalUrl)}`);
     };
 
