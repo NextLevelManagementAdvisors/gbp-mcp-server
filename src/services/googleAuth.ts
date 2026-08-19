@@ -110,13 +110,24 @@ export class GoogleAuthService {
     }
     
     /**
-     * Get the authenticated OAuth2 client for making API calls
+     * Get the authenticated OAuth2 client for making API calls.
+     *
+     * Only checks that credentials exist -- does NOT require the access
+     * token to still be unexpired. The oauth2Client already holds the
+     * refresh_token (set in the constructor / handleCallback), and
+     * google-auth-library transparently refreshes an expired access token
+     * before each API call as long as a refresh_token is present, emitting
+     * the 'tokens' event this service already listens to. Access tokens are
+     * short-lived by design (~1hr) and this method is called on every new
+     * MCP session (via ReviewService's constructor), so rejecting merely
+     * expired-but-refreshable tokens here crashed the whole process on any
+     * session created more than an hour after the last refresh.
      */
     getAuthenticatedClient(): any {
-        if (!this.tokens || !this.isTokenValid()) {
-            throw new Error('Not authenticated or token expired');
+        if (!this.tokens || !this.tokens.refresh_token) {
+            throw new Error('Not authenticated: no stored tokens. Run: node authenticate.js');
         }
-        
+
         return this.oauth2Client;
     }
     
