@@ -47,12 +47,15 @@ const SPLASH_HTML = `<!doctype html>
 </head>
 <body>
   <h1>GBP MCP${isMockMode ? ' <span class="badge">mock mode</span>' : ''}</h1>
-  <p class="sub">Google Business Profile over the Model Context Protocol &mdash; reviews, posts, Q&amp;A, media, insights, and business info. Single-operator server.</p>
+  <p class="sub">Google Business Profile over the Model Context Protocol &mdash; reviews, posts, Q&amp;A, media, insights, and business info.</p>
 
   <h2>Connect</h2>
   <p>Add as a custom connector in Claude or ChatGPT:</p>
   <pre>${gateConfig.issuer}/mcp</pre>
   <p>You will be asked to sign in with Google during the OAuth step.</p>
+
+  <h2>Access</h2>
+  <p>Sign-in is limited to authorized NLMA/Fidum emails and domains. Passing sign-in does not grant access to every location: which Business Profile locations you can see or edit is scoped per identity, and a new identity gets <b>zero</b> locations by default. To get access to specific locations, contact <code>forrest@nlma.io</code> or <code>admin@fidumcompany.com</code>.</p>
 
   <h2>Tools &mdash; 28 across 6 surfaces</h2>
   <ul>
@@ -65,7 +68,8 @@ const SPLASH_HTML = `<!doctype html>
   </ul>
 
   ${isMockMode ? `<h2>Mock mode</h2>
-  <p>Every tool currently returns realistic placeholder data. Live mode needs Google Business Profile API access approval (a 60+ day review requiring a verified GBP active 60+ days, a website, and a complete profile) &mdash; see the <a href="https://github.com/jmdurant/gbp-mcp-server#google-business-profile-api-access-requirements">upstream README</a>.</p>` : ''}
+  <p>Every tool currently returns realistic placeholder data. Live mode needs Google Business Profile API access approval (a 60+ day review requiring a verified GBP active 60+ days, a website, and a complete profile) &mdash; see the <a href="https://github.com/jmdurant/gbp-mcp-server#google-business-profile-api-access-requirements">upstream README</a>.</p>` : `<h2>API access status</h2>
+  <p>This project's Google Business Profile API access is under Google review (typical turnaround 7&ndash;10 business days). Until approved, calls return a quota-exceeded error rather than data &mdash; that's expected, not a bug.</p>`}
 
   <p class="src">Fork of <a href="https://github.com/jmdurant/gbp-mcp-server">jmdurant/gbp-mcp-server</a>, MIT licensed.</p>
 </body>
