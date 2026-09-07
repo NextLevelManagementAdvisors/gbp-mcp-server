@@ -7,6 +7,7 @@ import { GoogleAuthService } from './googleAuth.js';
 import { logger } from '../utils/logger.js';
 import { GOOGLE_API, ERROR_CODES } from '../utils/constants.js';
 import { buildApiUrl } from '../utils/pathHelpers.js';
+import { QUOTA_AWARE_RETRY_CONFIG, describeZeroQuotaDenial } from '../utils/googleApiRetry.js';
 
 export class GoogleMyBusinessApiClient {
     constructor(private authService: GoogleAuthService) {}
@@ -109,21 +110,29 @@ export class GoogleMyBusinessApiClient {
     async getFirstAccount(): Promise<any> {
         const auth = this.authService.getAuthenticatedClient();
         const { google } = await import('googleapis');
-        const mybusinessaccountmanagement = google.mybusinessaccountmanagement({ 
-            version: 'v1', 
-            auth 
+        const mybusinessaccountmanagement = google.mybusinessaccountmanagement({
+            version: 'v1',
+            auth,
+            ...QUOTA_AWARE_RETRY_CONFIG
         });
-        
-        const response = await mybusinessaccountmanagement.accounts.list({
-            pageSize: 1
-        });
-        
+
+        let response;
+        try {
+            response = await mybusinessaccountmanagement.accounts.list({
+                pageSize: 1
+            });
+        } catch (error: any) {
+            const quotaError = describeZeroQuotaDenial(error);
+            if (quotaError) throw quotaError;
+            throw error;
+        }
+
         const accounts = response.data.accounts || [];
-        
+
         if (accounts.length === 0) {
             throw new Error('No business accounts found');
         }
-        
+
         return accounts[0];
     }
 }
