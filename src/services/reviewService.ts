@@ -10,7 +10,8 @@ import { logger } from '../utils/logger.js';
 import { DEFAULTS, ERROR_CODES } from '../utils/constants.js';
 import { buildFullLocationPath, buildReviewPath, logPathResolution } from '../utils/pathHelpers.js';
 import { mapApiReviewToGoogleReview, mapApiLocationToBusinessLocation, filterUnrepliedReviews, extractCategories } from '../utils/mappers.js';
-import type { 
+import { QUOTA_AWARE_RETRY_CONFIG, describeZeroQuotaDenial } from '../utils/googleApiRetry.js';
+import type {
     BusinessLocation,
     BusinessProfile,
     GoogleReview, 
@@ -33,8 +34,8 @@ export class ReviewService implements IReviewService {
     constructor(private authService: GoogleAuthService) {
         // Initialize Google My Business API clients
         const auth = this.authService.getAuthenticatedClient();
-        this.mybusinessbusinessinformation = google.mybusinessbusinessinformation({ version: 'v1', auth });
-        this.mybusinessaccountmanagement = google.mybusinessaccountmanagement({ version: 'v1', auth });
+        this.mybusinessbusinessinformation = google.mybusinessbusinessinformation({ version: 'v1', auth, ...QUOTA_AWARE_RETRY_CONFIG });
+        this.mybusinessaccountmanagement = google.mybusinessaccountmanagement({ version: 'v1', auth, ...QUOTA_AWARE_RETRY_CONFIG });
         this.apiClient = new GoogleMyBusinessApiClient(authService);
     }
     
@@ -95,7 +96,12 @@ export class ReviewService implements IReviewService {
                     
                     allLocations.push(...locations);
                 } catch (locationError: any) {
-                    logger.warn(`Error fetching locations for account ${accountName}:`, locationError.message);
+                    const quotaError = describeZeroQuotaDenial(locationError);
+                    if (quotaError) {
+                        logger.warn(`Skipping locations for account ${accountName}: ${quotaError.message}`);
+                    } else {
+                        logger.warn(`Error fetching locations for account ${accountName}:`, locationError.message);
+                    }
                 }
             }
             
@@ -110,6 +116,14 @@ export class ReviewService implements IReviewService {
             };
             
         } catch (error: any) {
+            const quotaError = describeZeroQuotaDenial(error);
+            if (quotaError) {
+                return {
+                    success: false,
+                    error: quotaError.message,
+                    errorCode: ERROR_CODES.GBP_ACCESS_NOT_PROVISIONED
+                };
+            }
             logger.error('Error listing locations:', error);
             return {
                 success: false,
@@ -400,6 +414,14 @@ export class ReviewService implements IReviewService {
             };
             
         } catch (error: any) {
+            const quotaError = describeZeroQuotaDenial(error);
+            if (quotaError) {
+                return {
+                    success: false,
+                    error: quotaError.message,
+                    errorCode: ERROR_CODES.GBP_ACCESS_NOT_PROVISIONED
+                };
+            }
             logger.error('Error fetching business profile:', error);
             return {
                 success: false,

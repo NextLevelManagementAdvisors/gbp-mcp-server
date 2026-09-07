@@ -271,6 +271,30 @@ The server implements rate limiting to respect Google API quotas:
 2. **API Quota Exceeded**: Check your Google Cloud Console for API usage and limits
 3. **Permission Denied**: Verify the Google account has access to the business profile
 
+### GBP API enabled but not yet allowlisted
+
+If you've enabled the GBP APIs in a GCP project but access hasn't been approved yet (see
+[Google Business Profile API Access Requirements](#google-business-profile-api-access-requirements)),
+calls like `list_locations` will **fail fast with a `GBP API access not provisioned for project
+<project>`** error instead of hanging.
+
+This state is easy to misdiagnose because:
+
+- It presents as an HTTP 429 (`RESOURCE_EXHAUSTED`), which looks like a rate limit rather than a
+  permanent denial. The server distinguishes the two by checking whether the error's
+  `quota_limit_value` is `"0"` — the pre-approval default — versus a nonzero value, which is a
+  genuine rate limit and is retried as normal.
+- It is **invisible in the GCP console**: the GBP APIs show as "Enabled" with no warning that
+  access hasn't been granted. The only place the zero quota shows up is the quota page for the
+  specific method (e.g. `mybusinessaccountmanagement.googleapis.com`), and even there it's easy to
+  miss among unrelated quotas.
+
+If you see this error, submit (or check the status of) your request via the
+[GBP API contact form](https://support.google.com/business/contact/api_default) — see
+[Google Business Profile API Access Requirements](#google-business-profile-api-access-requirements)
+above. The full underlying error is available at `LOG_LEVEL=debug` if you need it for support
+correspondence.
+
 ### Logging
 
 Enable debug logging by setting `LOG_LEVEL=debug` in your `.env` file.
