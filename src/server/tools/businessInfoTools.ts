@@ -16,15 +16,40 @@ export function createGetLocationDetailsTool(svc: BusinessInfoService) {
             description: 'Retrieve metadata for a Google Business Profile location (title, phone, hours, categories, address, website).',
             inputSchema: {
                 locationName: z.string().describe('locations/{locationId}'),
-                readMask: z.string().optional().describe('Comma-separated list of fields to return')
+                readMask: z.string()
+                    .optional()
+                    .default('name,title,storefrontAddress,phoneNumbers,websiteUri,categories,regularHours,latlng,metadata')
+                    .describe(
+                        'Comma-separated list of fields to return. The upstream API requires this ' +
+                        'parameter; if omitted, a sensible default field set is used.'
+                    )
             },
-            outputSchema: { name: z.string().optional() }
+            outputSchema: {
+                name: z.string().optional(),
+                title: z.string().optional(),
+                storefrontAddress: z.any().optional(),
+                phoneNumbers: z.any().optional(),
+                websiteUri: z.string().optional(),
+                categories: z.any().optional(),
+                regularHours: z.any().optional(),
+                specialHours: z.any().optional(),
+                latlng: z.any().optional(),
+                metadata: z.any().optional(),
+                profile: z.any().optional(),
+                serviceArea: z.any().optional(),
+                labels: z.array(z.string()).optional(),
+                openInfo: z.any().optional(),
+                relationshipData: z.any().optional(),
+                moreHours: z.any().optional(),
+                languageCode: z.string().optional(),
+                storeCode: z.string().optional()
+            }
         },
         handler: async (args: any): Promise<CallToolResult> => {
             try {
                 const result = await svc.getLocation(args.locationName, args.readMask);
                 return {
-                    content: [{ type: 'text', text: `Location ${args.locationName}` }],
+                    content: [{ type: 'text', text: `Location ${args.locationName}:\n${JSON.stringify(result, null, 2)}` }],
                     structuredContent: result as any
                 };
             } catch (e) { return errorResult('get_location_details', e); }

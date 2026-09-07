@@ -61,6 +61,12 @@ For complete prerequisites, see the [official GBP API documentation](https://dev
    - Go to "APIs & Services" > "Library"
    - Search for and enable **"Google My Business API"**
    - Search for and enable **"My Business Account Management API"**
+   - Each GBP API is enabled **separately per project** — enabling one (e.g. `mybusiness.googleapis.com`)
+     does not enable the others (`mybusinessbusinessinformation.googleapis.com`,
+     `mybusinessqanda.googleapis.com`, `mybusinessverifications.googleapis.com`,
+     `businessprofileperformance.googleapis.com`, `mybusinesslodging.googleapis.com`). If a tool that
+     talks to one of these hosts fails, check "APIs & Services" > "Library" for that specific API and
+     enable it — see [Troubleshooting](#each-gbp-api-must-be-enabled-separately) below.
 5. Create OAuth 2.0 credentials:
    - Go to "Credentials" in the API & Services section
    - Click "Create Credentials" > "OAuth 2.0 Client IDs"
@@ -270,6 +276,26 @@ The server implements rate limiting to respect Google API quotas:
 1. **OAuth Error**: Ensure redirect URI matches exactly what's configured in Google Cloud Console
 2. **API Quota Exceeded**: Check your Google Cloud Console for API usage and limits
 3. **Permission Denied**: Verify the Google account has access to the business profile
+
+### Each GBP API must be enabled separately
+
+Google Business Profile isn't one API — it's a family of separate services, each with its own host
+and its own "Enable" toggle in Cloud Console:
+
+- `mybusiness.googleapis.com` (reviews, posts, media — legacy v4)
+- `mybusinessaccountmanagement.googleapis.com` (accounts)
+- `mybusinessbusinessinformation.googleapis.com` (locations, attributes, categories, services)
+- `mybusinessqanda.googleapis.com` (questions and answers)
+- `businessprofileperformance.googleapis.com` (daily metrics, search keywords)
+- `mybusinessverifications.googleapis.com` (verification attempts)
+- `mybusinesslodging.googleapis.com` (food/dining menus)
+
+Enabling one of these does **not** enable the others. It's easy to enable the ones your first
+feature needs, confirm those tools work, and then hit a hard failure the moment you try a tool that
+talks to a different host — reviews and location lookups can be working fine while Q&A or
+verifications are still disabled. If a tool call fails outright (a `SERVICE_DISABLED` 403, or a
+non-JSON/HTML error body — see below), check "APIs & Services" > "Library" for the specific host
+that tool uses and enable it there.
 
 ### GBP API enabled but not yet allowlisted
 

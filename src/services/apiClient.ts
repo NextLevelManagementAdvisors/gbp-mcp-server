@@ -94,16 +94,32 @@ export class GoogleMyBusinessApiClient {
         if (!response.ok) {
             const errorText = await response.text();
             logger.error(`API request failed: ${response.status}`, { errorText });
-            
-            throw new Error(`API request failed: ${response.status} - ${errorText}`);
+
+            throw new Error(`API request failed: ${response.status} - ${this.describeErrorBody(response, errorText)}`);
         }
-        
+
         const data = await response.json();
         logger.debug(`API Response received`, { status: response.status });
-        
+
         return data as T;
     }
-    
+
+    /**
+     * Google's frontend returns an HTML error page (not JSON) for requests to a host/API
+     * that isn't enabled, rather than the JSON error body the rest of the client expects.
+     * Surface a readable message instead of dumping the raw markup into an Error.
+     */
+    private describeErrorBody(response: any, body: string): string {
+        const contentType = String(response.headers?.get?.('content-type') ?? '');
+        const trimmed = body.trim();
+        const looksLikeHtml = contentType.includes('text/html') || /^<(!doctype|html)/i.test(trimmed);
+        if (!looksLikeHtml) return body;
+        return `non-JSON (HTML) error response, ${body.length} bytes, content-type: ${contentType || 'unknown'}. ` +
+            'This usually means the API for this host is not enabled on the Google Cloud project ' +
+            '(each GBP API must be enabled separately) or the request hit an unexpected host. ' +
+            'Enable the API in Cloud Console and retry; see LOG_LEVEL=debug for the raw body.';
+    }
+
     /**
      * Gets the first account from the authenticated user
      */
