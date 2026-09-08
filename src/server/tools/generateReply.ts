@@ -23,6 +23,7 @@ import type { LLMService } from '../../services/llmService.js';
 import type { GenerateReplyParams } from '../../types/index.js';
 import { CallToolResult, ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
 import { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import { toolSuccess } from './toolResponse.js';
 
 export interface GenerateReplyTool {
     schema: {
@@ -54,12 +55,12 @@ export function createGenerateReplyTool(llmService: LLMService): GenerateReplyTo
                 includePersonalization: z.boolean().optional().default(true)
                     .describe('Whether to include personalized references to the review content')
             },
-            outputSchema: z.object({
-                content: z.array(z.object({
-                    type: z.string(),
-                    text: z.string()
-                }))
-            })
+            outputSchema: {
+                replyText: z.string(),
+                tone: z.string(),
+                sentiment: z.enum(['positive', 'negative', 'neutral']),
+                confidence: z.number()
+            }
         },
         
         handler: async (args: any, extra: RequestHandlerExtra<ServerRequest, ServerNotification>): Promise<any> => {
@@ -117,19 +118,15 @@ export function createGenerateReplyTool(llmService: LLMService): GenerateReplyTo
                 
                 logger.info(`Successfully generated reply with ${replyData.tone} tone and ${replyData.confidence} confidence`);
                 
-                const response = {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Generated reply for "${businessName}":\n\n` +
-                                  `${replyData.replyText}\n\n` +
-                                  `Tone: ${replyData.tone}\n` +
-                                  `Sentiment: ${replyData.sentiment}\n` +
-                                  `Confidence: ${Math.round(replyData.confidence * 100)}%`
-                        }
-                    ]
-                };
-                return response;
+                return toolSuccess(
+                    `Generated reply for "${businessName}"`,
+                    {
+                        replyText: replyData.replyText,
+                        tone: replyData.tone,
+                        sentiment: replyData.sentiment,
+                        confidence: replyData.confidence
+                    }
+                );
                 
             } catch (error) {
                 logger.error('Error in generate_reply tool:', error);
