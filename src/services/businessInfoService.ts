@@ -60,7 +60,11 @@ export class BusinessInfoService {
             state.attributes = attributes;
             return { name: `${locationName}/attributes`, attributes };
         }
-        return this.apiClient.patch(`${locationName}/attributes`, { attributes }, { attributeMask: 'attributes' }, GOOGLE_API.HOSTS.BUSINESS_INFO);
+        // attributeMask must be the fully-qualified attribute names being written
+        // (e.g. "attributes/has_onsite_parking"), not the literal field name
+        // "attributes" — the API rejects the latter with INVALID_ATTRIBUTE_NAME.
+        const attributeMask = attributes.map(a => a.name).join(',');
+        return this.apiClient.patch(`${locationName}/attributes`, { attributes }, { attributeMask }, GOOGLE_API.HOSTS.BUSINESS_INFO);
     }
 
     async availableAttributes(categoryName: string, regionCode = 'US', languageCode = 'en', pageSize = 50) {

@@ -4,8 +4,8 @@
  * Daily metrics, monthly search keywords, multi-metric batch reports.
  *
  * GBP API surface: HOSTS.PERFORMANCE (businessprofileperformance.googleapis.com/v1)
- *   GET locations/{l}:fetchMultiDailyMetricsTimeSeries
- *   GET locations/{l}:fetchDailyMetricsTimeSeries
+ *   GET locations/{l}:fetchMultiDailyMetricsTimeSeries (plural `dailyMetrics`)
+ *   GET locations/{l}:getDailyMetricsTimeSeries (singular `dailyMetric`)
  *   GET locations/{l}/searchkeywords/impressions/monthly
  *
  * Daily metric names (DailyMetric enum):
@@ -38,8 +38,13 @@ export class InsightsService {
 
     async dailyMetric(locationName: string, metric: DailyMetric, range: DateRange) {
         if (this.mockMode) return this.mockSeries(metric);
+        // Not a typo, and not the same endpoint as multiDailyMetrics below: the
+        // single-metric method is `:getDailyMetricsTimeSeries` with singular
+        // `dailyMetric`, while the batch method is `:fetchMultiDailyMetricsTimeSeries`
+        // with plural repeated `dailyMetrics`. Verified against the live API — do
+        // not "unify" these into one helper.
         return this.apiClient.get(
-            `${locationName}:fetchDailyMetricsTimeSeries`,
+            `${locationName}:getDailyMetricsTimeSeries`,
             {
                 dailyMetric: metric,
                 'dailyRange.startDate.year': range.startDate.year,
