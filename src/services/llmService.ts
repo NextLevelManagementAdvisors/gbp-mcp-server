@@ -1,5 +1,7 @@
 /**
- * LLM Service for generating review responses using MCP sampling
+ * LLM Service for generating review responses.
+ * Precedence: direct Anthropic-compatible HTTP call (if ANTHROPIC_API_KEY is set)
+ * -> registered sampling callback -> MCP sampling -> template fallback.
  */
 
 import { logger } from '../utils/logger.js';
@@ -20,6 +22,75 @@ import type {
     ReviewResponseContext
 } from '../types/index.js';
 import { CreateMessageRequest, CreateMessageRequestSchema, ServerNotification, ServerRequest, ToolResultContent } from '@modelcontextprotocol/sdk/types.js';
+
+const DIRECT_HTTP_TIMEOUT_MS = 15_000;
+const DEFAULT_ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
+const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
+const ANTHROPIC_VERSION = '2023-06-01';
+
+interface DirectAnthropicConfig {
+    apiKey: string;
+    baseUrl: string;
+    model: string;
+}
+
+const getDirectAnthropicConfig = (): DirectAnthropicConfig | null => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+        return null;
+    }
+    return {
+        apiKey,
+        baseUrl: process.env.ANTHROPIC_BASE_URL || DEFAULT_ANTHROPIC_BASE_URL,
+        model: process.env.GBP_REPLY_MODEL || DEFAULT_ANTHROPIC_MODEL
+    };
+};
+
+/**
+ * Call an Anthropic-compatible /v1/messages endpoint directly via fetch.
+ * Aborts after DIRECT_HTTP_TIMEOUT_MS so a slow endpoint can never re-create
+ * the 60s sampling hang this replaces.
+ */
+const requestDirectAnthropic = async (prompt: string, config: DirectAnthropicConfig): Promise<string> => {
+    logger.debug('Calling direct Anthropic-compatible endpoint', { baseUrl: config.baseUrl, model: config.model });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DIRECT_HTTP_TIMEOUT_MS);
+
+    try {
+        const response = await fetch(`${config.baseUrl}/v1/messages`, {
+            method: 'POST',
+            headers: {
+                'x-api-key': config.apiKey,
+                'anthropic-version': ANTHROPIC_VERSION,
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: config.model,
+                max_tokens: DEFAULTS.MAX_PROMPT_LENGTH,
+                messages: [{ role: 'user', content: prompt }]
+            }),
+            signal: controller.signal
+        });
+
+        if (!response.ok) {
+            throw new Error(`Anthropic endpoint responded with HTTP ${response.status}`);
+        }
+
+        const data: any = await response.json();
+        const textBlock = Array.isArray(data.content)
+            ? data.content.find((block: any) => block?.type === 'text')
+            : undefined;
+
+        if (!textBlock?.text) {
+            throw new Error('Anthropic response contained no text content block');
+        }
+
+        return textBlock.text;
+    } finally {
+        clearTimeout(timeout);
+    }
+};
 
 type SendRequest = RequestHandlerExtra<ServerRequest, ServerNotification>['sendRequest'];
 const requestSampling = async (prompt: string, sendRequest: SendRequest) => {
@@ -89,26 +160,57 @@ reviewText: string, starRating: number, businessName: string, options: {
             
             let replyText: string;
             let confidence: number;
-            
-            // Try to use LLM sampling if available
-            if (this.samplingCallback) {
+            let method: 'direct-http' | 'sampling-callback' | 'mcp-sampling' | 'template';
+
+            const directConfig = getDirectAnthropicConfig();
+
+            if (directConfig) {
                 try {
-                    logger.info('Using AI sampling for reply generation');
+                    logger.info('Using direct Anthropic HTTP call for reply generation');
+                    replyText = await requestDirectAnthropic(prompt, directConfig);
+                    confidence = 0.9; // High confidence for AI-generated replies
+                    method = 'direct-http';
+                    logger.info('Direct AI-generated reply received', { length: replyText.length });
+                } catch (directError) {
+                    // A slow/failed direct call falls straight through to the template —
+                    // not to MCP sampling, which can itself hang for up to 60s.
+                    logger.warn('Direct Anthropic HTTP call failed, falling back to template', {
+                        error: directError instanceof Error ? directError.message : String(directError)
+                    });
+                    replyText = generateTemplateResponse(reviewText, starRating, businessName, replyTone);
+                    confidence = calculateResponseConfidence(reviewText, starRating, replyText);
+                    method = 'template';
+                }
+            } else if (this.samplingCallback) {
+                try {
+                    logger.info('Using AI sampling callback for reply generation');
                     replyText = await this.samplingCallback(prompt);
                     confidence = 0.9; // High confidence for AI-generated replies
+                    method = 'sampling-callback';
                     logger.info('AI-generated reply received', { length: replyText.length });
                 } catch (samplingError) {
                     logger.warn('AI sampling failed, falling back to template', { error: samplingError });
                     replyText = generateTemplateResponse(reviewText, starRating, businessName, replyTone);
                     confidence = calculateResponseConfidence(reviewText, starRating, replyText);
+                    method = 'template';
                 }
             } else {
-                logger.info('No AI sampling available, using template response');
-                replyText = await requestSampling(prompt, extra.sendRequest);
-                confidence = 0.9; // High confidence for AI-generated replies
+                try {
+                    logger.info('Using MCP sampling for reply generation');
+                    replyText = await requestSampling(prompt, extra.sendRequest);
+                    confidence = 0.9; // High confidence for AI-generated replies
+                    method = 'mcp-sampling';
+                } catch (samplingError) {
+                    logger.warn('MCP sampling failed, falling back to template', {
+                        error: samplingError instanceof Error ? samplingError.message : String(samplingError)
+                    });
+                    replyText = generateTemplateResponse(reviewText, starRating, businessName, replyTone);
+                    confidence = calculateResponseConfidence(reviewText, starRating, replyText);
+                    method = 'template';
+                }
             }
-            
-            logger.info('Reply generated successfully', { sentiment, confidence, method: this.samplingCallback ? 'AI' : 'template' });
+
+            logger.info('Reply generated successfully', { sentiment, confidence, method });
             
             return {
                 success: true,
