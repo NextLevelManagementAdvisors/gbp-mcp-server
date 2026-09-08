@@ -8,7 +8,7 @@ A Model Context Protocol (MCP) server covering the full Google Business Profile 
 
 **28 MCP tools across 6 surfaces.** Mock mode lets you develop against the full tool surface today; live mode requires [GBP API access approval](https://developers.google.com/my-business/content/prereqs) (60+ day waitlist).
 
-- **Reviews** (5 tools) — `list_locations`, `get_unreplied_reviews`, `generate_reply` (AI via MCP sampling — ⚠️ requires client sampling support, see note below), `post_reply`, `delete_review_reply`, `get_review_day_stats`
+- **Reviews** (5 tools) — `list_locations`, `get_unreplied_reviews`, `generate_reply` (direct Anthropic-compatible HTTP call, MCP sampling, or template — see note below), `post_reply`, `delete_review_reply`, `get_review_day_stats`
 - **Local Posts** (4 tools) — `get_local_posts`, `create_local_post`, `update_local_post`, `delete_local_post` (STANDARD / EVENT / OFFER / ALERT)
 - **Q&A** (4 tools) — `get_questions`, `upsert_answer`, `delete_answer`, `delete_question` *(beyond InsightfulPipe parity)*
 - **Media** (4 tools) — `get_media`, `create_media`, `start_media_upload`, `delete_media`
@@ -107,6 +107,11 @@ Required environment variables:
 - `GOOGLE_CLIENT_SECRET`: Your Google OAuth 2.0 Client Secret
 - `GOOGLE_REDIRECT_URI`: OAuth redirect URI (default: http://localhost:3000/auth/callback)
 
+Optional — enables the direct HTTP path for `generate_reply` (see [Available Tools](#available-tools)):
+- `ANTHROPIC_API_KEY`: API key for an Anthropic-compatible `/v1/messages` endpoint
+- `ANTHROPIC_BASE_URL`: Base URL for that endpoint (defaults to `https://api.anthropic.com`; any Anthropic-compatible host works)
+- `GBP_REPLY_MODEL`: Model name to request (defaults to `claude-haiku-4-5-20251001`)
+
 ### 4. Authentication
 
 Before running the server, you need to authenticate with Google:
@@ -203,7 +208,13 @@ Connect to: `http://localhost:3000/mcp`
 
 1. **`list_locations`**: Get all business locations associated with your account
 2. **`get_reviews`**: Fetch reviews for a specific location
-3. **`generate_reply`**: Generate an AI response to a review. ⚠️ Requires [MCP sampling](https://modelcontextprotocol.io/docs/concepts/sampling) support from the connecting client — the server has no LLM API key configured and relies entirely on the client to fulfill the sampling request. Clients that don't implement sampling (including the current claude.ai remote connector over the HTTP transport) will hang until the request times out. Non-functional in that deployment; use the `review_response` prompt as a workaround (see [AI_REPLY_GENERATION.md](AI_REPLY_GENERATION.md)).
+3. **`generate_reply`**: Generate a response to a review. Tries each of the following in order and uses the first one available:
+   1. **Direct HTTP call** to an Anthropic-compatible `/v1/messages` endpoint, if `ANTHROPIC_API_KEY` is set (see [Configuration](#3-configuration) above). Aborts after ~15s and falls through to the template rather than risk a slow response.
+   2. A registered in-process sampling callback, if one has been set programmatically.
+   3. [MCP sampling](https://modelcontextprotocol.io/docs/concepts/sampling), which requires client support and does **not** work over the remote HTTP transport (e.g. the claude.ai remote connector) — it will hang until the request times out.
+   4. A static template response, which always succeeds.
+
+   In practice: configure `ANTHROPIC_API_KEY` for AI-generated replies in any deployment, including remote HTTP transports where sampling can't work. Without it, replies fall back to templates unless the connecting client implements MCP sampling. See [AI_REPLY_GENERATION.md](AI_REPLY_GENERATION.md) for background.
 4. **`post_reply`**: Post a reply to a review on Google Business Profile
 
 ### Available Resources
