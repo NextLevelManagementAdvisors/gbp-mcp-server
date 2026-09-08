@@ -29,20 +29,25 @@ export class BusinessInfoService {
         return this.apiClient.get(locationName, readMask ? { readMask } : undefined, GOOGLE_API.HOSTS.BUSINESS_INFO);
     }
 
-    async updateLocation(locationName: string, body: any, updateMask: string) {
+    async updateLocation(locationName: string, body: any, updateMask: string, validateOnly?: boolean) {
         if (this.mockMode) {
-            logger.info('mock updateLocation', { locationName, updateMask });
+            logger.info('mock updateLocation', { locationName, updateMask, validateOnly });
             // Persist updates into the per-process mock store so subsequent
             // getLocation calls reflect the change. updateMask gates which
-            // top-level fields actually overwrite.
+            // top-level fields actually overwrite. validateOnly never writes.
             const state = getMockLocationState(locationName);
             const fields = updateMask.split(',').map(s => s.trim()).filter(Boolean);
+            if (validateOnly) {
+                const preview = { ...state };
+                for (const f of fields) if (f in body) preview[f] = body[f];
+                return preview;
+            }
             for (const f of fields) {
                 if (f in body) state[f] = body[f];
             }
             return { ...state };
         }
-        return this.apiClient.patch(locationName, body, { updateMask }, GOOGLE_API.HOSTS.BUSINESS_INFO);
+        return this.apiClient.patch(locationName, body, { updateMask, validateOnly }, GOOGLE_API.HOSTS.BUSINESS_INFO);
     }
 
     async getAttributes(locationName: string) {

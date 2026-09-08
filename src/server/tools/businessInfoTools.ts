@@ -179,10 +179,17 @@ export function createUpdateLocationTool(svc: BusinessInfoService) {
                 'Update fields on a Google Business Profile location (PATCH with updateMask). ' +
                 'Provide only the fields you want to overwrite — mask gates which top-level keys ' +
                 'are written. Common use: change title, primary/additional categories, websiteUri, ' +
-                'profile.description, regularHours, phoneNumbers. Use update_services for serviceItems.',
+                'profile.description, regularHours, phoneNumbers, storefrontAddress. Set validateOnly ' +
+                'to preview a normalized result without writing (recommended for address edits, since ' +
+                'a bad address on a verified profile can trigger re-verification). ' +
+                'Use update_services for serviceItems.',
             inputSchema: {
                 locationName: z.string().describe('locations/{locationId}'),
-                updateMask: z.string().describe('Comma-separated list of top-level fields to overwrite (e.g. "title,categories,websiteUri")'),
+                updateMask: z.string().describe('Comma-separated list of top-level fields to overwrite (e.g. "title,categories,websiteUri,storefrontAddress")'),
+                validateOnly: z.boolean().optional().describe(
+                    'If true, validates and returns the normalized request without actually updating ' +
+                    'the location. Maps to the API\'s validateOnly query param.'
+                ),
                 title: z.string().optional(),
                 websiteUri: z.string().optional(),
                 phoneNumbers: z.any().optional().describe('{primaryPhone, additionalPhones[]}'),
@@ -192,7 +199,13 @@ export function createUpdateLocationTool(svc: BusinessInfoService) {
                 specialHours: z.any().optional(),
                 storeCode: z.string().optional(),
                 labels: z.array(z.string()).optional(),
-                openInfo: z.any().optional()
+                openInfo: z.any().optional(),
+                storefrontAddress: z.any().optional().describe(
+                    'PostalAddress: {regionCode, languageCode, postalCode, administrativeArea, locality, ' +
+                    'addressLines[], sublocality?, sortingCode?, organization?, recipients[]?}. Note: after ' +
+                    'a successful address change, latlng is expected to come back null — Google discards ' +
+                    'the prior pin and re-geocodes asynchronously. That is not data loss.'
+                )
             },
             outputSchema: { name: z.string().optional() }
         },
@@ -200,9 +213,10 @@ export function createUpdateLocationTool(svc: BusinessInfoService) {
             try {
                 // Strip control args, pass everything else as the PATCH body so
                 // the caller doesn't have to construct it explicitly.
-                const { locationName, updateMask, ...body } = args;
-                const result = await svc.updateLocation(locationName, body, updateMask);
-                return toolSuccess(`Updated ${locationName} (mask: ${updateMask})`, result);
+                const { locationName, updateMask, validateOnly, ...body } = args;
+                const result = await svc.updateLocation(locationName, body, updateMask, validateOnly);
+                const suffix = validateOnly ? ' [validateOnly — not written]' : '';
+                return toolSuccess(`Updated ${locationName} (mask: ${updateMask})${suffix}`, result);
             } catch (e) { return toolError('update_location', e); }
         }
     };
