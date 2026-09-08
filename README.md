@@ -8,7 +8,7 @@ A Model Context Protocol (MCP) server covering the full Google Business Profile 
 
 **28 MCP tools across 6 surfaces.** Mock mode lets you develop against the full tool surface today; live mode requires [GBP API access approval](https://developers.google.com/my-business/content/prereqs) (60+ day waitlist).
 
-- **Reviews** (5 tools) — `list_locations`, `get_unreplied_reviews`, `generate_reply` (AI via MCP sampling), `post_reply`, `delete_review_reply`, `get_review_day_stats`
+- **Reviews** (5 tools) — `list_locations`, `get_unreplied_reviews`, `generate_reply` (AI via MCP sampling — ⚠️ requires client sampling support, see note below), `post_reply`, `delete_review_reply`, `get_review_day_stats`
 - **Local Posts** (4 tools) — `get_local_posts`, `create_local_post`, `update_local_post`, `delete_local_post` (STANDARD / EVENT / OFFER / ALERT)
 - **Q&A** (4 tools) — `get_questions`, `upsert_answer`, `delete_answer`, `delete_question` *(beyond InsightfulPipe parity)*
 - **Media** (4 tools) — `get_media`, `create_media`, `start_media_upload`, `delete_media`
@@ -203,7 +203,7 @@ Connect to: `http://localhost:3000/mcp`
 
 1. **`list_locations`**: Get all business locations associated with your account
 2. **`get_reviews`**: Fetch reviews for a specific location
-3. **`generate_reply`**: Generate an AI response to a review
+3. **`generate_reply`**: Generate an AI response to a review. ⚠️ Requires [MCP sampling](https://modelcontextprotocol.io/docs/concepts/sampling) support from the connecting client — the server has no LLM API key configured and relies entirely on the client to fulfill the sampling request. Clients that don't implement sampling (including the current claude.ai remote connector over the HTTP transport) will hang until the request times out. Non-functional in that deployment; use the `review_response` prompt as a workaround (see [AI_REPLY_GENERATION.md](AI_REPLY_GENERATION.md)).
 4. **`post_reply`**: Post a reply to a review on Google Business Profile
 
 ### Available Resources
