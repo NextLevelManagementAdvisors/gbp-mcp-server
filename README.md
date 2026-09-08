@@ -332,6 +332,16 @@ If you see this error, submit (or check the status of) your request via the
 above. The full underlying error is available at `LOG_LEVEL=debug` if you need it for support
 correspondence.
 
+### `latlng` returns null after an address change
+
+Calling `update_location` with `storefrontAddress` in the `updateMask` will come back with
+`latlng: null` in the response, even though the write succeeded. This is expected, not data loss:
+Google discards the prior pin when the storefront address changes and re-geocodes the location
+asynchronously, so the new coordinates aren't available yet in the PATCH response. Other fields
+(`hasVoiceOfMerchant`, verification state) are unaffected. Re-fetch the location with
+`get_location_details` a bit later if you need the updated coordinates. If you want to preview an
+address edit without writing it, set `validateOnly: true` on `update_location` first.
+
 ### Logging
 
 Enable debug logging by setting `LOG_LEVEL=debug` in your `.env` file.
