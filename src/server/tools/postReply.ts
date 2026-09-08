@@ -134,7 +134,7 @@ export function createPostReplyTool(reviewService: IReviewService): PostReplyToo
                 };
                 
                 logger.info(`Successfully posted reply to review ${reviewId} for location ${locationName}`);
-                
+
                 return {
                     content: [
                         {
@@ -142,7 +142,7 @@ export function createPostReplyTool(reviewService: IReviewService): PostReplyToo
                             text: `Reply posted successfully!\n\n` +
                                   `**Location:** ${locationName}\n` +
                                   `**Review ID:** ${reviewId}\n` +
-                                  `**Reply ID:** ${postData.replyId}\n` +
+                                  (postData.replyId ? `**Reply ID:** ${postData.replyId}\n` : '') +
                                   `**Posted At:** ${new Date(postData.postedAt).toLocaleString()}\n\n` +
                                   `**Your Reply:**\n"${replyText}"\n\n` +
                                   `The reply is now visible to customers on Google Business Profile.`

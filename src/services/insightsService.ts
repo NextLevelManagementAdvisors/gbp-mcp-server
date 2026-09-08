@@ -5,7 +5,7 @@
  *
  * GBP API surface: HOSTS.PERFORMANCE (businessprofileperformance.googleapis.com/v1)
  *   GET locations/{l}:fetchMultiDailyMetricsTimeSeries
- *   GET locations/{l}/dailyMetricsTimeSeries:get             (legacy single)
+ *   GET locations/{l}:fetchDailyMetricsTimeSeries
  *   GET locations/{l}/searchkeywords/impressions/monthly
  *
  * Daily metric names (DailyMetric enum):
@@ -39,7 +39,7 @@ export class InsightsService {
     async dailyMetric(locationName: string, metric: DailyMetric, range: DateRange) {
         if (this.mockMode) return this.mockSeries(metric);
         return this.apiClient.get(
-            `${locationName}/dailyMetricsTimeSeries:get`,
+            `${locationName}:fetchDailyMetricsTimeSeries`,
             {
                 dailyMetric: metric,
                 'dailyRange.startDate.year': range.startDate.year,
@@ -61,7 +61,7 @@ export class InsightsService {
         return this.apiClient.get(
             `${locationName}:fetchMultiDailyMetricsTimeSeries`,
             {
-                dailyMetrics: metrics.join(','),
+                dailyMetrics: metrics,
                 'dailyRange.startDate.year': range.startDate.year,
                 'dailyRange.startDate.month': range.startDate.month,
                 'dailyRange.startDate.day': range.startDate.day,

@@ -37,23 +37,28 @@ export function buildReviewPath(
 }
 
 /**
- * Builds an API URL with query parameters
+ * Builds an API URL with query parameters. Array values are appended as
+ * repeated params (`?key=a&key=b`), as required by repeated-field query
+ * parameters like `dailyMetrics` — not comma-joined into a single value.
  */
 export function buildApiUrl(
     baseUrl: string,
     path: string,
-    params?: Record<string, string | number | boolean | undefined>
+    params?: Record<string, string | number | boolean | undefined | Array<string | number | boolean>>
 ): string {
     const url = new URL(`${baseUrl}/${path}`);
-    
+
     if (params) {
         Object.entries(params).forEach(([key, value]) => {
-            if (value !== undefined) {
+            if (value === undefined) return;
+            if (Array.isArray(value)) {
+                value.forEach(v => url.searchParams.append(key, String(v)));
+            } else {
                 url.searchParams.append(key, String(value));
             }
         });
     }
-    
+
     return url.toString();
 }
 

@@ -293,10 +293,10 @@ export class ReviewService implements IReviewService {
 
         return {
             success: true,
-            data: reviewsResult.data?.reviews || []
+            data: reviews
         };
     }
-    
+
     /**
      * Post a reply to a specific review
      */
@@ -322,14 +322,16 @@ export class ReviewService implements IReviewService {
             logger.debug(`API Response:`, JSON.stringify(responseData, null, 2));
             
             const postedAt = responseData.updateTime || new Date().toISOString();
-            
+
             logger.info(`✅ Reply posted successfully to review ${reviewId}`);
-            
+
+            // Note: the GBP API's reply resource has no id of its own — a review
+            // has at most one reply, addressed via the review's own path — so
+            // there is no separate replyId to report here.
             return {
                 success: true,
                 data: {
                     success: true,
-                    replyId: reviewId,
                     postedAt
                 }
             };
