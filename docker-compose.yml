@@ -1,0 +1,13 @@
+# Deploy config for the VPS checkout at /opt/gbp-mcp (178.16.141.166).
+# Runtime state lives OUTSIDE git: ./.env and ./data/ are gitignored.
+# Managed by /opt/nlma-redeploy (fast-forward main -> docker compose build && up -d).
+services:
+  gbp-mcp:
+    build: .
+    container_name: gbp-mcp
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/opt/app/data
+      - ./data/.tokens.json:/opt/app/.tokens.json

@@ -1,0 +1,10 @@
+.git
+node_modules
+build
+data
+.env
+.env.*
+*.bak*
+KNOWN-ISSUE-*.md
+docs
+*.md

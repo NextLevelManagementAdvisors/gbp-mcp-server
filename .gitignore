@@ -180,3 +180,9 @@ client_secret*.json
 rest-collection/
 manifest.json
 review-mcp.mcpb
+
+# Deploy runtime state (VPS /opt checkout) — never commit
+data/
+oauth-store.json
+.env.bak*
+KNOWN-ISSUE-*.md
