@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { logger } from '../../utils/logger.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { PostService, LocalPost, LocalPostType } from '../../services/postService.js';
+import { toolSuccess, toolError } from './toolResponse.js';
 
 const postTopicTypeSchema = z.enum(['STANDARD', 'EVENT', 'OFFER', 'ALERT']);
 
@@ -26,12 +27,9 @@ export function createGetLocalPostsTool(postService: PostService) {
             try {
                 logger.info('get_local_posts', { locationName: args.locationName });
                 const result = await postService.list(args.locationName, args.pageSize, args.pageToken);
-                return {
-                    content: [{ type: 'text', text: `Found ${result.localPosts?.length || 0} local posts.` }],
-                    structuredContent: result as any
-                };
+                return toolSuccess(`Found ${result.localPosts?.length || 0} local posts`, result);
             } catch (e) {
-                return errorResult('get_local_posts', e);
+                return toolError('get_local_posts', e);
             }
         }
     };
@@ -85,7 +83,7 @@ export function createCreateLocalPostTool(postService: PostService) {
                     structuredContent: result as any
                 };
             } catch (e) {
-                return errorResult('create_local_post', e);
+                return toolError('create_local_post', e);
             }
         }
     };
@@ -117,7 +115,7 @@ export function createUpdateLocalPostTool(postService: PostService) {
                     structuredContent: result as any
                 };
             } catch (e) {
-                return errorResult('update_local_post', e);
+                return toolError('update_local_post', e);
             }
         }
     };
@@ -137,16 +135,8 @@ export function createDeleteLocalPostTool(postService: PostService) {
                 await postService.delete(args.postName);
                 return { content: [{ type: 'text', text: `Post deleted: ${args.postName}` }], structuredContent: { ok: true } };
             } catch (e) {
-                return errorResult('delete_local_post', e);
+                return toolError('delete_local_post', e);
             }
         }
-    };
-}
-
-function errorResult(toolName: string, e: unknown): CallToolResult {
-    logger.error(`${toolName} failed`, e);
-    return {
-        content: [{ type: 'text', text: `${toolName} failed: ${e instanceof Error ? e.message : String(e)}` }],
-        isError: true
     };
 }

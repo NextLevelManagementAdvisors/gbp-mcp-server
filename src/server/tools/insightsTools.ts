@@ -4,9 +4,9 @@
  */
 
 import { z } from 'zod';
-import { logger } from '../../utils/logger.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { InsightsService, DailyMetric, DateRange } from '../../services/insightsService.js';
+import { toolSuccess, toolError } from './toolResponse.js';
 
 const dailyMetricSchema = z.enum([
     'BUSINESS_IMPRESSIONS_DESKTOP_MAPS', 'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
@@ -44,11 +44,8 @@ export function createGetDailyMetricsTool(insightsService: InsightsService) {
             try {
                 const range = parseRange(args.startDate, args.endDate);
                 const result = await insightsService.dailyMetric(args.locationName, args.metric as DailyMetric, range);
-                return {
-                    content: [{ type: 'text', text: `Daily metric ${args.metric} ${args.startDate} → ${args.endDate}` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('get_daily_metrics', e); }
+                return toolSuccess(`Daily metric ${args.metric} ${args.startDate} → ${args.endDate}`, result);
+            } catch (e) { return toolError('get_daily_metrics', e); }
         }
     };
 }
@@ -70,11 +67,8 @@ export function createGetMultiDailyMetricsTool(insightsService: InsightsService)
             try {
                 const range = parseRange(args.startDate, args.endDate);
                 const result = await insightsService.multiDailyMetrics(args.locationName, args.metrics as DailyMetric[], range);
-                return {
-                    content: [{ type: 'text', text: `Multi-metric report (${args.metrics.length} metrics) ${args.startDate} → ${args.endDate}` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('get_multi_daily_metrics', e); }
+                return toolSuccess(`Multi-metric report (${args.metrics.length} metrics) ${args.startDate} → ${args.endDate}`, result);
+            } catch (e) { return toolError('get_multi_daily_metrics', e); }
         }
     };
 }
@@ -99,19 +93,8 @@ export function createGetSearchKeywordsTool(insightsService: InsightsService) {
                     startMonth: { year: sy, month: sm },
                     endMonth: { year: ey, month: em }
                 });
-                return {
-                    content: [{ type: 'text', text: `Search keywords ${args.startMonth} → ${args.endMonth}` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('get_search_keywords', e); }
+                return toolSuccess(`Search keywords ${args.startMonth} → ${args.endMonth}`, result);
+            } catch (e) { return toolError('get_search_keywords', e); }
         }
-    };
-}
-
-function errorResult(toolName: string, e: unknown): CallToolResult {
-    logger.error(`${toolName} failed`, e);
-    return {
-        content: [{ type: 'text', text: `${toolName} failed: ${e instanceof Error ? e.message : String(e)}` }],
-        isError: true
     };
 }

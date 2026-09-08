@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { logger } from '../../utils/logger.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { MediaService, MediaCategory } from '../../services/mediaService.js';
+import { toolSuccess, toolError } from './toolResponse.js';
 
 const categorySchema = z.enum([
     'COVER', 'PROFILE', 'LOGO', 'EXTERIOR', 'INTERIOR',
@@ -29,11 +30,8 @@ export function createGetMediaTool(mediaService: MediaService) {
         handler: async (args: any): Promise<CallToolResult> => {
             try {
                 const result = await mediaService.list(args.locationName, args.pageSize, args.pageToken);
-                return {
-                    content: [{ type: 'text', text: `Found ${result.mediaItems?.length || 0} media items.` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('get_media', e); }
+                return toolSuccess(`Found ${result.mediaItems?.length || 0} media items`, result);
+            } catch (e) { return toolError('get_media', e); }
         }
     };
 }
@@ -66,7 +64,7 @@ export function createCreateMediaTool(mediaService: MediaService) {
                     content: [{ type: 'text', text: `Media uploaded: ${result.name || '(pending)'}` }],
                     structuredContent: result as any
                 };
-            } catch (e) { return errorResult('create_media', e); }
+            } catch (e) { return toolError('create_media', e); }
         }
     };
 }
@@ -86,7 +84,7 @@ export function createStartMediaUploadTool(mediaService: MediaService) {
                     content: [{ type: 'text', text: `Upload started. resourceName=${result.resourceName}` }],
                     structuredContent: result as any
                 };
-            } catch (e) { return errorResult('start_media_upload', e); }
+            } catch (e) { return toolError('start_media_upload', e); }
         }
     };
 }
@@ -103,15 +101,7 @@ export function createDeleteMediaTool(mediaService: MediaService) {
             try {
                 await mediaService.delete(args.mediaName);
                 return { content: [{ type: 'text', text: `Media deleted: ${args.mediaName}` }], structuredContent: { ok: true } };
-            } catch (e) { return errorResult('delete_media', e); }
+            } catch (e) { return toolError('delete_media', e); }
         }
-    };
-}
-
-function errorResult(toolName: string, e: unknown): CallToolResult {
-    logger.error(`${toolName} failed`, e);
-    return {
-        content: [{ type: 'text', text: `${toolName} failed: ${e instanceof Error ? e.message : String(e)}` }],
-        isError: true
     };
 }

@@ -5,9 +5,9 @@
  */
 
 import { z } from 'zod';
-import { logger } from '../../utils/logger.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { BusinessInfoService } from '../../services/businessInfoService.js';
+import { toolSuccess, toolError } from './toolResponse.js';
 
 export function createGetLocationDetailsTool(svc: BusinessInfoService) {
     return {
@@ -48,11 +48,8 @@ export function createGetLocationDetailsTool(svc: BusinessInfoService) {
         handler: async (args: any): Promise<CallToolResult> => {
             try {
                 const result = await svc.getLocation(args.locationName, args.readMask);
-                return {
-                    content: [{ type: 'text', text: `Location ${args.locationName}:\n${JSON.stringify(result, null, 2)}` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('get_location_details', e); }
+                return toolSuccess(`Location ${args.locationName}`, result);
+            } catch (e) { return toolError('get_location_details', e); }
         }
     };
 }
@@ -68,11 +65,8 @@ export function createGetLocationAttributesTool(svc: BusinessInfoService) {
         handler: async (args: any): Promise<CallToolResult> => {
             try {
                 const result = await svc.getAttributes(args.locationName);
-                return {
-                    content: [{ type: 'text', text: `Attributes for ${args.locationName}` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('get_location_attributes', e); }
+                return toolSuccess(`Attributes for ${args.locationName}`, result);
+            } catch (e) { return toolError('get_location_attributes', e); }
         }
     };
 }
@@ -93,11 +87,8 @@ export function createGetAvailableAttributesTool(svc: BusinessInfoService) {
         handler: async (args: any): Promise<CallToolResult> => {
             try {
                 const result = await svc.availableAttributes(args.categoryName, args.regionCode, args.languageCode, args.pageSize);
-                return {
-                    content: [{ type: 'text', text: `Available attributes for ${args.categoryName} (${args.regionCode})` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('get_available_attributes', e); }
+                return toolSuccess(`Available attributes for ${args.categoryName} (${args.regionCode})`, result);
+            } catch (e) { return toolError('get_available_attributes', e); }
         }
     };
 }
@@ -119,11 +110,8 @@ export function createGetServicesTool(svc: BusinessInfoService) {
                     ? String(args.readMask).trim()
                     : 'serviceItems';
                 const result = await svc.getLocation(args.locationName, readMask);
-                return {
-                    content: [{ type: 'text', text: `Services for ${args.locationName} (readMask=${readMask})` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('get_services', e); }
+                return toolSuccess(`Services for ${args.locationName} (readMask=${readMask})`, result);
+            } catch (e) { return toolError('get_services', e); }
         }
     };
 }
@@ -151,11 +139,8 @@ export function createGetCategoriesTool(svc: BusinessInfoService) {
                     view: args.view,
                     pageSize: args.pageSize
                 });
-                return {
-                    content: [{ type: 'text', text: `Categories (${args.regionCode}/${args.languageCode})` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('get_categories', e); }
+                return toolSuccess(`Categories (${args.regionCode}/${args.languageCode})`, result);
+            } catch (e) { return toolError('get_categories', e); }
         }
     };
 }
@@ -180,11 +165,8 @@ export function createGetBatchCategoriesTool(svc: BusinessInfoService) {
                     languageCode: args.languageCode,
                     view: args.view
                 });
-                return {
-                    content: [{ type: 'text', text: `Batch resolved ${args.names.length} categories` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('get_batch_categories', e); }
+                return toolSuccess(`Batch resolved ${args.names.length} categories`, result);
+            } catch (e) { return toolError('get_batch_categories', e); }
         }
     };
 }
@@ -220,11 +202,8 @@ export function createUpdateLocationTool(svc: BusinessInfoService) {
                 // the caller doesn't have to construct it explicitly.
                 const { locationName, updateMask, ...body } = args;
                 const result = await svc.updateLocation(locationName, body, updateMask);
-                return {
-                    content: [{ type: 'text', text: `Updated ${locationName} (mask: ${updateMask})` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('update_location', e); }
+                return toolSuccess(`Updated ${locationName} (mask: ${updateMask})`, result);
+            } catch (e) { return toolError('update_location', e); }
         }
     };
 }
@@ -253,11 +232,8 @@ export function createUpdateServicesTool(svc: BusinessInfoService) {
                     { serviceItems: args.serviceItems },
                     'serviceItems'
                 );
-                return {
-                    content: [{ type: 'text', text: `Replaced ${args.serviceItems.length} service items on ${args.locationName}` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('update_services', e); }
+                return toolSuccess(`Replaced ${args.serviceItems.length} service items on ${args.locationName}`, result);
+            } catch (e) { return toolError('update_services', e); }
         }
     };
 }
@@ -281,11 +257,8 @@ export function createSetAttributesTool(svc: BusinessInfoService) {
         handler: async (args: any): Promise<CallToolResult> => {
             try {
                 const result = await svc.setAttributes(args.locationName, args.attributes);
-                return {
-                    content: [{ type: 'text', text: `Set ${args.attributes.length} attributes on ${args.locationName}` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('set_attributes', e); }
+                return toolSuccess(`Set ${args.attributes.length} attributes on ${args.locationName}`, result);
+            } catch (e) { return toolError('set_attributes', e); }
         }
     };
 }
@@ -301,19 +274,8 @@ export function createGetVerificationsTool(svc: BusinessInfoService) {
         handler: async (args: any): Promise<CallToolResult> => {
             try {
                 const result = await svc.verifications(args.locationName);
-                return {
-                    content: [{ type: 'text', text: `Verifications for ${args.locationName}` }],
-                    structuredContent: result as any
-                };
-            } catch (e) { return errorResult('get_verifications', e); }
+                return toolSuccess(`Verifications for ${args.locationName}`, result);
+            } catch (e) { return toolError('get_verifications', e); }
         }
-    };
-}
-
-function errorResult(toolName: string, e: unknown): CallToolResult {
-    logger.error(`${toolName} failed`, e);
-    return {
-        content: [{ type: 'text', text: `${toolName} failed: ${e instanceof Error ? e.message : String(e)}` }],
-        isError: true
     };
 }
