@@ -50,6 +50,14 @@ export class BusinessInfoService {
         return this.apiClient.patch(locationName, body, { updateMask, validateOnly }, GOOGLE_API.HOSTS.BUSINESS_INFO);
     }
 
+    async deleteLocation(locationName: string) {
+        if (this.mockMode) {
+            logger.info('mock deleteLocation', { locationName });
+            return {};
+        }
+        return this.apiClient.delete(locationName, GOOGLE_API.HOSTS.BUSINESS_INFO);
+    }
+
     async getAttributes(locationName: string) {
         if (this.mockMode) {
             const state = getMockLocationState(locationName);

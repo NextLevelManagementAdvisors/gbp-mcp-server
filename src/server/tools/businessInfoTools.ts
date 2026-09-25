@@ -222,6 +222,38 @@ export function createUpdateLocationTool(svc: BusinessInfoService) {
     };
 }
 
+export function createDeleteLocationTool(svc: BusinessInfoService) {
+    return {
+        schema: {
+            title: 'Delete Location',
+            description:
+                'Permanently delete a Google Business Profile location (e.g. an unverified duplicate). ' +
+                'IRREVERSIBLE: the listing and its reviews are gone. Requires confirmTitle to match the ' +
+                'location title exactly. Refuses verified listings (metadata.hasVoiceOfMerchant) unless ' +
+                'allowVerified is true, so the live profile cannot be removed by mistake.',
+            inputSchema: {
+                locationName: z.string().describe('locations/{locationId}'),
+                confirmTitle: z.string().describe('Must equal the location title exactly'),
+                allowVerified: z.boolean().optional().describe('Allow deleting a verified listing. Default false.')
+            },
+            outputSchema: { deleted: z.string().optional() }
+        },
+        handler: async (args: any): Promise<CallToolResult> => {
+            try {
+                const loc: any = await svc.getLocation(args.locationName, 'name,title,storefrontAddress,metadata');
+                if (loc?.title !== args.confirmTitle) {
+                    throw new Error(`confirmTitle "${args.confirmTitle}" does not match location title "${loc?.title}"`);
+                }
+                if (loc?.metadata?.hasVoiceOfMerchant && !args.allowVerified) {
+                    throw new Error(`${args.locationName} is a verified listing; pass allowVerified: true to delete it`);
+                }
+                await svc.deleteLocation(args.locationName);
+                return toolSuccess(`Deleted ${args.locationName} (${loc.title})`, { deleted: args.locationName, location: loc });
+            } catch (e) { return toolError('delete_location', e); }
+        }
+    };
+}
+
 export function createUpdateServicesTool(svc: BusinessInfoService) {
     return {
         schema: {
