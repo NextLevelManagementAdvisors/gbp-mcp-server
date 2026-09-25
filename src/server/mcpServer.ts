@@ -41,7 +41,8 @@ import {
 import {
     createGetLocationDetailsTool, createGetLocationAttributesTool, createGetAvailableAttributesTool,
     createGetServicesTool, createGetCategoriesTool, createGetBatchCategoriesTool, createGetVerificationsTool,
-    createUpdateLocationTool, createUpdateServicesTool, createSetAttributesTool
+    createUpdateLocationTool,
+    createDeleteLocationTool, createUpdateServicesTool, createSetAttributesTool
 } from './tools/businessInfoTools.js';
 import {
     createGetQuestionsTool, createUpsertAnswerTool,
@@ -287,7 +288,7 @@ export class McpServer {
         this.registerSimpleTool('get_multi_daily_metrics', createGetMultiDailyMetricsTool(this.insightsService));
         this.registerSimpleTool('get_search_keywords',     createGetSearchKeywordsTool(this.insightsService));
 
-        // Business Information (10)
+        // Business Information (11)
         this.registerSimpleTool('get_location_details',    createGetLocationDetailsTool(this.businessInfoService));
         this.registerSimpleTool('get_location_attributes', createGetLocationAttributesTool(this.businessInfoService));
         this.registerSimpleTool('get_available_attributes',createGetAvailableAttributesTool(this.businessInfoService));
@@ -296,6 +297,7 @@ export class McpServer {
         this.registerSimpleTool('get_batch_categories',    createGetBatchCategoriesTool(this.businessInfoService));
         this.registerSimpleTool('get_verifications',       createGetVerificationsTool(this.businessInfoService));
         this.registerSimpleTool('update_location',         createUpdateLocationTool(this.businessInfoService));
+        this.registerSimpleTool('delete_location',         createDeleteLocationTool(this.businessInfoService));
         this.registerSimpleTool('update_services',         createUpdateServicesTool(this.businessInfoService));
         this.registerSimpleTool('set_attributes',          createSetAttributesTool(this.businessInfoService));
 
