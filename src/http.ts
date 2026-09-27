@@ -86,7 +86,7 @@ function mountMcp(app: express.Express, authMw: express.RequestHandler): void {
             return entry.transport.handleRequest(req, res, req.body);
         }
         const isInitialize = req.body?.method === 'initialize';
-        if (sessionId && !isInitialize) return res.status(400).json({ error: 'unknown session' });
+        if (sessionId && !isInitialize) return res.status(404).json({ error: 'unknown session' });
 
         const server = new McpServer();
         const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
@@ -109,7 +109,7 @@ function mountMcp(app: express.Express, authMw: express.RequestHandler): void {
         if (sessionId && sessions.has(sessionId)) {
             return sessions.get(sessionId)!.transport.handleRequest(req, res);
         }
-        res.status(400).json({ error: 'unknown session' });
+        res.status(404).json({ error: 'unknown session' });
     };
     app.get('/mcp', authMw, replaySession);
     app.delete('/mcp', authMw, async (req: Request, res: Response) => {
@@ -121,7 +121,7 @@ function mountMcp(app: express.Express, authMw: express.RequestHandler): void {
             sessions.delete(sessionId);
             return;
         }
-        res.status(400).json({ error: 'unknown session' });
+        res.status(404).json({ error: 'unknown session' });
     });
 }
 
